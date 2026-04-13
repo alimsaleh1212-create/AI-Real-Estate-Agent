@@ -1,0 +1,35 @@
+# Git
+.git
+.gitignore
+
+# Secrets — never in image
+.env
+.env.*
+
+# Python artifacts — rebuilt by pip install inside container
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# IDE & OS
+.idea/
+.vscode/
+.DS_Store
+
+# Dev-only files — not needed at runtime
+tests/
+notebooks/
+*.md
+htmlcov/
+.coverage
+.pytest_cache/
+.mypy_cache/
+.pre-commit-config.yaml
+
+# Docker config itself — not needed inside the image
+docker-compose*.yml
+Dockerfile
+
+# Raw data — model is baked in; data is not needed at runtime
+data/

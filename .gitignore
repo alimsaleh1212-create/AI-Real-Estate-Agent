@@ -1,0 +1,54 @@
+# Environment & secrets (.env.example is intentionally tracked)
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+credentials.json
+service-account*.json
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+
+# Virtual environment
+.venv/
+venv/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project reference docs (local only — not pushed)
+*.pdf
+
+# Claude Code local memory
+.claude/
+
+# Testing & coverage
+.coverage
+htmlcov/
+.pytest_cache/
+.mypy_cache/
+
+# Raw data — large files, not for version control
+data/raw/AmesHousing.csv
+data/raw/*.parquet
+data/raw/*.xlsx
+
+# Trained model artifacts — rebuilt from notebook
+models/*.joblib
+models/*.pkl
+models/*.json
+
+# Jupyter
+.ipynb_checkpoints/

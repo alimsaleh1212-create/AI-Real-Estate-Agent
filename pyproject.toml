@@ -1,0 +1,54 @@
+[project]
+name = "ai-real-estate-agent"
+version = "0.1.0"
+description = "AI real estate agent with LLM prompt chaining and ML price prediction"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi==0.115.12",
+    "uvicorn[standard]==0.34.2",
+    "pydantic==2.11.3",
+    "google-generativeai==0.8.5",
+    "scikit-learn==1.6.1",
+    "pandas==2.2.3",
+    "numpy==2.2.5",
+    "joblib==1.4.2",
+    "python-dotenv==1.1.0",
+    "streamlit==1.45.1",
+    "httpx==0.28.1",
+]
+
+[dependency-groups]
+dev = [
+    "pytest==8.3.5",
+    "pytest-cov==6.1.1",
+    "black==25.1.0",
+    "isort==6.0.1",
+    "flake8==7.2.0",
+    "mypy==1.15.0",
+    "pre-commit==4.2.0",
+    "matplotlib==3.10.1",
+    "seaborn==0.13.2",
+    "scipy==1.15.2",
+    "jupyter==1.1.1",
+    "ipykernel==6.29.5",
+]
+
+[tool.black]
+line-length = 88
+
+[tool.isort]
+profile = "black"
+line_length = 88
+
+[tool.flake8]
+max-line-length = 88
+extend-ignore = ["E203", "W503"]
+
+[tool.mypy]
+strict = true
+python_version = "3.13"
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--cov=src --cov-report=term-missing"
