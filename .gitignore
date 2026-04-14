@@ -41,9 +41,12 @@ htmlcov/
 .mypy_cache/
 
 # Raw data — large files, not for version control
-#data/raw/AmesHousing.csv
-#data/raw/*.parquet
-#data/raw/*.xlsx
+data/raw/AmesHousing.csv
+data/raw/*.parquet
+data/raw/*.xlsx
+
+# Local reference resources (PDFs, slides, etc.)
+resources/
 
 # Trained model artifacts — rebuilt from notebook
 models/*.joblib
