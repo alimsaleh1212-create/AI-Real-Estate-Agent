@@ -6,6 +6,10 @@ FROM python:3.11-slim
 # Set working directory for all subsequent instructions.
 WORKDIR /app
 
+# Ensure /app is always on sys.path — required for `import src` when
+# streamlit replaces sys.path[0] with the script's directory.
+ENV PYTHONPATH=/app
+
 # --- Dependency layer (cached unless pyproject.toml changes) ---
 # Copy only the manifest first so Docker can cache this layer.
 # Rebuilding deps only happens when pyproject.toml or uv.lock changes.

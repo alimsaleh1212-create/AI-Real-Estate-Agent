@@ -44,6 +44,27 @@ st.set_page_config(
 # One-time resource loading (cached per process — model loaded once)
 # ---------------------------------------------------------------------------
 
+_FEATURE_LABELS: dict[str, str] = {
+    "OverallQual": "Overall Quality (1–10)",
+    "TotalSF": "Total Floor Area (sqft)",
+    "GarageCars": "Garage Capacity (cars)",
+    "TotalBath": "Total Bathrooms",
+    "YearBuilt": "Year Built",
+    "TotalBsmtSF": "Basement Area (sqft)",
+    "KitchenQual": "Kitchen Quality",
+    "BsmtQual": "Basement Quality",
+    "ExterQual": "Exterior Material Quality",
+    "Neighborhood": "Neighborhood",
+}
+
+_PROMPT_EXAMPLE = (
+    "**Example:** \"3-bedroom, 2-story home in Northridge Heights, built in 1998. "
+    "Total living area is 2,100 sqft with a 900 sqft finished basement "
+    "in good condition. "
+    "2-car garage, 2.5 bathrooms, excellent kitchen, good exterior finish, "
+    "overall quality rating 8 out of 10.\""
+)
+
 _ORDINAL_VALUES = ["None", "Po", "Fa", "TA", "Gd", "Ex"]
 _QUALITY_LABELS = {
     "None": "None (no basement)",
@@ -121,33 +142,33 @@ def _render_gap_form(extracted: ExtractedFeatures) -> ExtractedFeatures:
 
         with col1:
             updates["OverallQual"] = st.slider(
-                "Overall Quality (1–10)",
+                _FEATURE_LABELS["OverallQual"],
                 min_value=1, max_value=10,
                 value=extracted.OverallQual or 6,
                 help=FEATURE_DEFINITIONS["OverallQual"]["description"],
             )
             updates["TotalSF"] = st.number_input(
-                "Total Floor Area (sqft)",
+                _FEATURE_LABELS["TotalSF"],
                 min_value=300, max_value=12000,
                 value=int(extracted.TotalSF or 1500),
                 step=50,
                 help=FEATURE_DEFINITIONS["TotalSF"]["description"],
             )
             updates["GarageCars"] = st.selectbox(
-                "Garage Capacity (cars)",
+                _FEATURE_LABELS["GarageCars"],
                 options=[0, 1, 2, 3, 4],
                 index=extracted.GarageCars if extracted.GarageCars is not None else 2,
                 help=FEATURE_DEFINITIONS["GarageCars"]["description"],
             )
             updates["TotalBath"] = st.number_input(
-                "Total Bathrooms",
+                _FEATURE_LABELS["TotalBath"],
                 min_value=0.0, max_value=8.0,
                 value=float(extracted.TotalBath or 2.0),
                 step=0.5,
                 help=FEATURE_DEFINITIONS["TotalBath"]["description"],
             )
             updates["YearBuilt"] = st.slider(
-                "Year Built",
+                _FEATURE_LABELS["YearBuilt"],
                 min_value=1872, max_value=2010,
                 value=extracted.YearBuilt or 1990,
                 help=FEATURE_DEFINITIONS["YearBuilt"]["description"],
@@ -155,7 +176,7 @@ def _render_gap_form(extracted: ExtractedFeatures) -> ExtractedFeatures:
 
         with col2:
             updates["TotalBsmtSF"] = st.number_input(
-                "Basement Area (sqft, 0 = no basement)",
+                _FEATURE_LABELS["TotalBsmtSF"],
                 min_value=0, max_value=7000,
                 value=int(extracted.TotalBsmtSF or 0),
                 step=50,
@@ -164,7 +185,7 @@ def _render_gap_form(extracted: ExtractedFeatures) -> ExtractedFeatures:
             kq_idx = _ordinal_index(extracted.KitchenQual, _ORDINAL_VALUES[1:])
             updates["KitchenQual"] = _ORDINAL_VALUES[1:][
                 st.selectbox(
-                    "Kitchen Quality",
+                    _FEATURE_LABELS["KitchenQual"],
                     options=range(len(_ORDINAL_VALUES[1:])),
                     format_func=lambda i: _QUALITY_LABELS[_ORDINAL_VALUES[1:][i]],
                     index=kq_idx,
@@ -175,7 +196,7 @@ def _render_gap_form(extracted: ExtractedFeatures) -> ExtractedFeatures:
             bq_idx = _ordinal_index(extracted.BsmtQual, bq_options)
             updates["BsmtQual"] = bq_options[
                 st.selectbox(
-                    "Basement Quality",
+                    _FEATURE_LABELS["BsmtQual"],
                     options=range(len(bq_options)),
                     format_func=lambda i: _QUALITY_LABELS[bq_options[i]],
                     index=bq_idx,
@@ -185,7 +206,7 @@ def _render_gap_form(extracted: ExtractedFeatures) -> ExtractedFeatures:
             eq_idx = _ordinal_index(extracted.ExterQual, _ORDINAL_VALUES[1:])
             updates["ExterQual"] = _ORDINAL_VALUES[1:][
                 st.selectbox(
-                    "Exterior Quality",
+                    _FEATURE_LABELS["ExterQual"],
                     options=range(len(_ORDINAL_VALUES[1:])),
                     format_func=lambda i: _QUALITY_LABELS[_ORDINAL_VALUES[1:][i]],
                     index=eq_idx,
@@ -198,7 +219,7 @@ def _render_gap_form(extracted: ExtractedFeatures) -> ExtractedFeatures:
                 else 0
             )
             updates["Neighborhood"] = st.selectbox(
-                "Neighborhood",
+                _FEATURE_LABELS["Neighborhood"],
                 options=_NEIGHBORHOODS,
                 index=nbhd_idx,
                 help=FEATURE_DEFINITIONS["Neighborhood"]["description"],
@@ -238,11 +259,12 @@ def main() -> None:
         query = st.text_area(
             "Property Description",
             placeholder=(
-                "e.g. '3-bedroom ranch, 2-car garage, built 1998, "
-                "excellent kitchen, Northridge Heights'"
+                "Describe the property in plain English — include size, quality, "
+                "year built, garage, bathrooms, basement, and neighborhood."
             ),
             height=100,
         )
+        st.info(_PROMPT_EXAMPLE)
         col_analyze, col_tip = st.columns([2, 3])
         with col_analyze:
             analyze = st.button("Analyze", type="primary", use_container_width=True)
@@ -301,7 +323,11 @@ def main() -> None:
                     continue
                 val = getattr(extracted, feat)
                 status = "✅ extracted" if feat in ext_names else "⬜ missing"
-                rows.append({"Feature": feat, "Value": val, "Status": status})
+                rows.append({
+                        "Feature": _FEATURE_LABELS.get(feat, feat),
+                        "Value": val,
+                        "Status": status,
+                    })
             st.dataframe(rows, use_container_width=True, hide_index=True)
 
         updated = _render_gap_form(extracted)

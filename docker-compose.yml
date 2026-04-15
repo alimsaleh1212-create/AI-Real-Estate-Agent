@@ -4,6 +4,7 @@ services:
   # FastAPI backend — prediction and insights API
   api:
     build: .
+    image: ai-real-estate-agent
     ports:
       - "8000:8000"
     env_file:
@@ -17,7 +18,7 @@ services:
 
   # Streamlit UI — calls src functions directly (no HTTP to api service)
   ui:
-    build: .
+    image: ai-real-estate-agent
     command:
       - streamlit
       - run
