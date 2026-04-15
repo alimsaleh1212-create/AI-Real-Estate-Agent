@@ -10,7 +10,7 @@ Week 2 AIE Bootcamp project. Deadline: Thursday 2026-04-16 midnight. Presentatio
 |-------------|--------|-----------|
 | Dataset | Ames Housing (2,930 rows, 80+ features) | Recommended by brief, rich feature set |
 | Feature selection | Data-driven (statistical tests) → 10 features | Not hand-picked; justified with Pearson, MI, ANOVA, Spearman |
-| LLM provider | Google Gemini API (free tier, `gemini-2.0-flash`) | Zero cost — 15 RPM, 1M tokens/day |
+| LLM provider | Google Gemini API (free tier, `gemini-2.5-flash`) | Zero cost — 15 RPM, 1M tokens/day |
 | Env management | `uv` (fast Python package manager + venv) | Modern, fast, lockfile support |
 | ML models | Ridge Regression + GradientBoostingRegressor | Linear baseline + non-linear; two swappable as required by brief |
 | UI | Streamlit | Simplest, fewest deps, good for forms |

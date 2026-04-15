@@ -262,7 +262,7 @@ Never use `requirements.txt` — `pyproject.toml` is the single source of truth.
 
 ## 18. LLM Provider
 
-This project uses the **Google Gemini API** (free tier). Model: `gemini-2.0-flash`.
+This project uses the **Google Gemini API** (free tier). Model: `gemini-2.5-flash`.
 
 - Client: `google-generativeai` Python SDK
 - Auth: `GOOGLE_API_KEY` environment variable

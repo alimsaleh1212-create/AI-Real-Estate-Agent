@@ -20,7 +20,7 @@ load_dotenv()
 # LLM
 # ---------------------------------------------------------------------------
 
-GEMINI_MODEL: str = "gemini-2.0-flash"
+GEMINI_MODEL: str = "gemini-2.5-flash"
 
 
 def get_google_api_key() -> str:
