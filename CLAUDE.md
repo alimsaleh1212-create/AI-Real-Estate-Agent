@@ -271,6 +271,30 @@ This project uses the **Google Gemini API** (free tier). Model: `gemini-2.5-flas
 
 ---
 
+## 19. LLM Input Security — Prompt Injection Prevention
+
+**Threat**: User input is embedded into prompt strings. A malicious user could craft
+a query to override instructions, leak system prompts, or cause unexpected behavior.
+
+### Rules — enforced in every `llm_chain.py` change:
+
+1. **Always sanitize before format()**: Call `_sanitize_query()` on every user-supplied
+   string before interpolating it into any prompt template.
+2. **Delimiters around user content**: Wrap `{query}` in `<user_input>...</user_input>`
+   tags in all prompt templates. Never embed raw user text adjacent to instructions.
+3. **Sanitize LLM string outputs before re-use**: Any string field from Stage 1
+   (e.g., Neighborhood) that flows into Stage 2 must pass through `_sanitize_feature_string()`.
+4. **Token limits on all generation configs**: Set `max_output_tokens` to prevent
+   unbounded responses and data exfiltration attempts.
+5. **Never eval() or exec() LLM output**: Treat all LLM responses as untrusted text,
+   even when instructed to return code.
+6. **Log suspicious patterns**: Log (don't reject) queries matching injection patterns
+   (`logger.warning`) for monitoring. Rate limiting is enforced at the FastAPI layer.
+7. **Pydantic is the last line of defence**: `ExtractedFeatures` Pydantic validation
+   rejects structurally malformed Stage 1 output before it reaches the predictor or Stage 2.
+
+---
+
 ## 20. Use These Commands — don't reimplement manually
 
 When performing the following tasks, invoke the corresponding slash command instead of applying the rules from prose:

@@ -12,6 +12,7 @@ import llm_chain in tests can mock the client before it is created.
 
 import json
 import logging
+import re
 from typing import Any
 
 import google.generativeai as genai
@@ -70,10 +71,12 @@ def _get_model() -> Any:  # -> genai.GenerativeModel
 _EXTRACTION_CONFIG: Any = genai.GenerationConfig(  # type: ignore[attr-defined]
     temperature=0.0,  # deterministic for structured extraction
     response_mime_type="application/json",
+    max_output_tokens=512,  # ~200 tokens for 10-feature JSON; cap prevents exfiltration
 )
 
 _TEXT_CONFIG: Any = genai.GenerationConfig(  # type: ignore[attr-defined]
-    temperature=0.7
+    temperature=0.7,
+    max_output_tokens=1024,  # 3-4 sentences needs ~150 tokens; 1024 is a generous cap
 )
 
 
@@ -134,12 +137,62 @@ def _format_features_text(features: ExtractedFeatures) -> str:
     lines = []
     for name in features.extracted_features:
         value = getattr(features, name)
+        # Sanitize string values before Stage 2 embedding (secondary injection)
+        if isinstance(value, str):
+            value = _sanitize_feature_string(value)
         lines.append(f"  - {name}: {value}")
     if features.missing_features:
         lines.append(
             f"  - (imputed from training data: {', '.join(features.missing_features)})"
         )
     return "\n".join(lines)
+
+
+_MAX_QUERY_LEN: int = 500
+_INJECTION_PATTERN: re.Pattern[str] = re.compile(
+    r"(ignore|disregard|override|forget|system|instruction|prompt|previous)\s",
+    re.IGNORECASE,
+)
+_SAFE_FEATURE_CHARS: re.Pattern[str] = re.compile(r"[^\w\s,.\-]")
+
+
+def _sanitize_query(query: str) -> str:
+    """Truncate and strip control characters from a user query before prompt injection.
+
+    Caps length, removes null bytes and carriage returns that could break prompt
+    structure, and logs a warning if injection-pattern keywords are detected.
+    Does not reject queries — logs only, so legitimate edge-case phrasing still works.
+
+    Args:
+        query: Raw user input string.
+
+    Returns:
+        Sanitized string safe for interpolation into any prompt template.
+    """
+    sanitized = query[:_MAX_QUERY_LEN]
+    sanitized = sanitized.replace("\x00", "").replace("\r", " ").replace("\t", " ")
+    if _INJECTION_PATTERN.search(sanitized):
+        logger.warning(
+            "Suspicious injection pattern detected in query (first 60 chars): %s",
+            sanitized[:60],
+        )
+    return sanitized
+
+
+def _sanitize_feature_string(value: str) -> str:
+    """Strip characters outside alphanumeric and basic punctuation from a feature value.
+
+    Prevents secondary prompt injection when Stage 1 string outputs (e.g., Neighborhood)
+    are embedded into Stage 2 prompts. Ordinal values are already enum-validated by
+    Pydantic; this targets free-text fields.
+
+    Args:
+        value: String feature value produced by Stage 1 extraction.
+
+    Returns:
+        Sanitized string containing only word chars, spaces, commas, dots, hyphens.
+    """
+    return _SAFE_FEATURE_CHARS.sub("", value)
 
 
 def _format_stats_text(stats: dict[str, Any]) -> str:
@@ -189,7 +242,7 @@ def extract_features(
         ExtractionError: If both attempts fail to produce a valid schema.
     """
     template = EXTRACTION_PROMPT_V1 if prompt_version == "v1" else EXTRACTION_PROMPT_V2
-    prompt = template.format(query=query)
+    prompt = template.format(query=_sanitize_query(query))
 
     last_exc: Exception = ExtractionError("No attempts made")
     for attempt in range(1, 3):  # two attempts total
@@ -274,7 +327,7 @@ def classify_intent(query: str) -> str:
     Raises:
         ValueError: If the model returns an unexpected value.
     """
-    prompt = INTENT_PROMPT.format(query=query)
+    prompt = INTENT_PROMPT.format(query=_sanitize_query(query))
     try:
         raw = _call_gemini(prompt, _TEXT_CONFIG).strip().lower()
     except Exception as exc:
@@ -304,7 +357,7 @@ def generate_market_insights(query: str, stats: dict[str, Any]) -> str:
         Exception: Re-raises API errors after logging.
     """
     prompt = INSIGHTS_PROMPT.format(
-        query=query,
+        query=_sanitize_query(query),
         stats_text=_format_stats_text(stats),
     )
     try:

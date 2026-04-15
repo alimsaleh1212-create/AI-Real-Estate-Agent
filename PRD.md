@@ -480,6 +480,40 @@ Block 11 (Notebook finalize)  -- add prompt experiments, polish for Colab
 
 ---
 
+## Security — Prompt Injection Prevention
+
+### Threat Model
+
+The prediction pipeline embeds user input at 4 points:
+
+1. Stage 1 extraction prompt — user query → `EXTRACTION_PROMPT_V2`
+2. Intent classifier — user query → `INTENT_PROMPT`
+3. Market insights — user query → `INSIGHTS_PROMPT`
+4. Stage 2 secondary injection — Stage 1 string outputs (Neighborhood) → `INTERPRETATION_PROMPT`
+
+Surface 4 is the subtlest: the attacker doesn't break Stage 1's JSON structure, just
+crafts a query that causes Stage 1 to return a malicious string in `Neighborhood`, which
+is then embedded in Stage 2's prompt.
+
+### Controls
+
+| Control | Where | What It Does |
+|---------|-------|--------------|
+| `_sanitize_query()` | `llm_chain.py` | Caps at 500 chars, strips control chars, logs suspicious patterns |
+| XML delimiters `<user_input>` | `prompts.py` | Structural separation of user content from instructions |
+| `_sanitize_feature_string()` | `llm_chain.py` | Strips non-alphanumeric chars from Stage 1 string outputs before Stage 2 |
+| `max_output_tokens` | `llm_chain.py` | Caps response length; prevents unbounded exfiltration |
+| Pydantic schema validation | `schemas.py` | Rejects malformed Stage 1 JSON; validates ordinal values against explicit enum |
+| Rate limiting | `app/main.py` | FastAPI middleware caps requests per IP (Block 7) |
+
+### What We Don't Do
+
+- **No blocklist filtering**: Keyword blocklists are trivially bypassed and create false positives. We log, not block.
+- **No output content scanning**: Out of scope for this project; production systems should add LLM output moderation.
+- **No `system_instruction` separation**: Gemini's `system_instruction` param requires one model instance per prompt type — the delimiter + sanitization approach provides equivalent defence-in-depth.
+
+---
+
 ## AIE Bootcamp Coding Guidelines Compliance
 
 | Section | How We Comply |

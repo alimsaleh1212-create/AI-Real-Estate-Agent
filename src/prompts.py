@@ -41,7 +41,7 @@ FEATURES (use these exact field names)
 - ExterQual       string         Exterior material quality: Po / Fa / TA / Gd / Ex
 - Neighborhood    string         Ames neighborhood code (e.g. CollgCr, NridgHt, OldTown)
 
-User description: {query}
+<user_input>{query}</user_input>
 """
 
 # V2: Few-shot. Adds three worked examples before the live query.
@@ -88,7 +88,7 @@ JSON: {{"OverallQual": null, "TotalSF": null, "GarageCars": null, "TotalBath": n
 "YearBuilt": null, "TotalBsmtSF": null, "KitchenQual": null, "BsmtQual": null, \
 "ExterQual": null, "Neighborhood": null}}
 
-User description: {query}
+<user_input>{query}</user_input>
 """
 
 # ---------------------------------------------------------------------------
@@ -132,7 +132,7 @@ Classify the following user query as exactly one of: "prediction" or "analysis".
 
 Return ONLY the single word — no punctuation, no explanation.
 
-Query: {query}
+<user_input>{query}</user_input>
 """
 
 # ---------------------------------------------------------------------------
@@ -149,7 +149,7 @@ provided statistics, say exactly: "I don't have that data."
 MARKET STATISTICS
 {stats_text}
 
-User question: {query}
+<user_input>{query}</user_input>
 
 Write a 2–3 sentence response that directly answers the question and \
 cites at least one specific number from the statistics above.
