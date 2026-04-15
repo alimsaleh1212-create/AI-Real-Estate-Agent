@@ -16,6 +16,8 @@ dependencies = [
     "streamlit==1.45.1",
     "httpx==0.28.1",
     "shap>=0.51.0",
+    "plotly>=6.7.0",
+    "statsmodels>=0.14.6",
 ]
 
 [dependency-groups]

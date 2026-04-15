@@ -244,11 +244,18 @@ def main() -> None:
     _init_predictor()
     _init_state()
 
-    st.title("AI Real Estate Agent")
-    st.caption(
-        "Ames, Iowa — describe a property in plain English "
-        "for an AI-powered price estimate."
-    )
+    col_hdr, col_nav = st.columns([4, 1])
+    with col_hdr:
+        st.title("AI Real Estate Agent")
+        st.caption(
+            "Ames, Iowa — describe a property in plain English "
+            "for an AI-powered price estimate."
+        )
+    with col_nav:
+        st.write("")
+        st.write("")
+        if st.button("📊 Dataset Analytics", use_container_width=True):
+            st.switch_page("pages/dashboard.py")
 
     step = st.session_state["step"]
 
