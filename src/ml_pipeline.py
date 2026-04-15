@@ -17,9 +17,11 @@ import joblib
 import numpy as np
 import pandas as pd
 from sklearn.compose import ColumnTransformer
-from sklearn.ensemble import GradientBoostingRegressor
+from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor
 from sklearn.impute import SimpleImputer
+from sklearn.linear_model import Lasso, Ridge
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+from sklearn.model_selection import cross_val_score
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, OrdinalEncoder, StandardScaler
 
@@ -36,19 +38,27 @@ logger = logging.getLogger(__name__)
 
 RANDOM_STATE: int = 42
 
-# Gradient Boosting hyperparameters — tuned in Notebook 03.
-_GB_PARAMS: dict[str, Any] = {
-    "n_estimators": 300,
-    "max_depth": 3,
-    "learning_rate": 0.1,
-    "subsample": 0.8,
-    "min_samples_leaf": 5,
-    "n_iter_no_change": 20,
-    "validation_fraction": 0.1,
-    "random_state": RANDOM_STATE,
+# All candidate models evaluated during training selection.
+_CANDIDATE_MODELS: dict[str, Any] = {
+    "Ridge": Ridge(alpha=10.0),
+    "Lasso": Lasso(alpha=0.001, max_iter=5000),
+    "GradientBoosting": GradientBoostingRegressor(
+        n_estimators=300,
+        max_depth=3,
+        learning_rate=0.1,
+        subsample=0.8,
+        min_samples_leaf=5,
+        n_iter_no_change=20,
+        validation_fraction=0.1,
+        random_state=RANDOM_STATE,
+    ),
+    "RandomForest": RandomForestRegressor(
+        n_estimators=300,
+        min_samples_leaf=3,
+        n_jobs=-1,
+        random_state=RANDOM_STATE,
+    ),
 }
-
-_RIDGE_ALPHA: float = 10.0
 
 
 def build_preprocessor() -> ColumnTransformer:
@@ -128,6 +138,44 @@ def build_pipeline(model: Any) -> Pipeline:
             ("model", model),
         ]
     )
+
+
+def select_best_model(
+    X_train: pd.DataFrame,
+    y_train: pd.Series,
+) -> tuple[str, Any]:
+    """Run 5-fold CV on all candidate models; return the best by CV RMSE.
+
+    Each candidate is wrapped with the standard preprocessor. The target
+    is log1p-transformed before scoring so RMSE is on the log scale
+    (consistent with the training objective).
+
+    Args:
+        X_train: Training feature DataFrame (selected columns only).
+        y_train: Training SalePrice series (dollar scale).
+
+    Returns:
+        Tuple of (model_name, unfitted_estimator) for the winner.
+    """
+    y_log = np.log1p(y_train)
+    best_name, best_estimator, best_score = "", None, float("inf")
+    results: list[tuple[str, float, float]] = []
+
+    for name, estimator in _CANDIDATE_MODELS.items():
+        pipeline = build_pipeline(estimator)
+        scores = cross_val_score(
+            pipeline, X_train, y_log, cv=5,
+            scoring="neg_root_mean_squared_error",
+        )
+        mean_cv = float(-scores.mean())
+        std_cv = float(scores.std())
+        results.append((name, mean_cv, std_cv))
+        logger.info("CV RMSE  %-20s %.4f ± %.4f", name, mean_cv, std_cv)
+        if mean_cv < best_score:
+            best_name, best_estimator, best_score = name, estimator, mean_cv
+
+    logger.info("Winner: %s (CV RMSE %.4f)", best_name, best_score)
+    return best_name, best_estimator
 
 
 def _compute_metrics(
@@ -326,12 +374,17 @@ if __name__ == "__main__":
     X_val_sel = X_val[SELECTED_FEATURES]
     X_test_sel = X_test[SELECTED_FEATURES]
 
-    # Train GradientBoosting (best model from Notebook 03)
-    gb_pipeline = build_pipeline(GradientBoostingRegressor(**_GB_PARAMS))
-    metrics = train_and_evaluate(gb_pipeline, X_train_sel, y_train, X_val_sel, y_val)
+    # Select best model via 5-fold CV across all 4 candidates
+    best_name, best_estimator = select_best_model(X_train_sel, y_train)
+
+    # Train winner on full training data and evaluate
+    best_pipeline = build_pipeline(best_estimator)
+    metrics = train_and_evaluate(
+        best_pipeline, X_train_sel, y_train, X_val_sel, y_val
+    )
 
     # Evaluate on test set exactly once
-    test_pred = np.expm1(gb_pipeline.predict(X_test_sel))
+    test_pred = np.expm1(best_pipeline.predict(X_test_sel))
     test_metrics = _compute_metrics(y_test, test_pred)
     logger.info(
         "Test  RMSE=$%.0f R²=%.4f",
@@ -343,12 +396,12 @@ if __name__ == "__main__":
         X_train_sel,
         y_train,
         extra={
-            "model_name": "GradientBoosting",
+            "model_name": best_name,
             "val_metrics": metrics["val"],
             "test_metrics": test_metrics,
         },
     )
 
-    save_model(gb_pipeline)
+    save_model(best_pipeline)
     save_training_stats(stats)
-    logger.info("Done. Model and stats serialized.")
+    logger.info("Done. %s saved as best model.", best_name)

@@ -20,12 +20,14 @@ from sklearn.pipeline import Pipeline
 
 from src.config import get_google_api_key
 from src.ml_pipeline import (
+    _CANDIDATE_MODELS,
     _compute_metrics,
     build_pipeline,
     build_preprocessor,
     compute_training_stats,
     save_model,
     save_training_stats,
+    select_best_model,
 )
 
 
@@ -201,6 +203,53 @@ class TestSaveModel:
         path = tmp_path / "subdir" / "model.joblib"
         save_model(_minimal_pipeline(), path=path)
         assert path.parent.exists()
+
+
+class TestSelectBestModel:
+    """Tests for select_best_model() using a tiny synthetic dataset."""
+
+    @pytest.fixture()
+    def tiny_data(self) -> tuple[pd.DataFrame, pd.Series]:
+        """50-row synthetic dataset matching the expected feature schema."""
+        rng = np.random.default_rng(0)
+        n = 50
+        df = pd.DataFrame({
+            "OverallQual": rng.integers(3, 10, n),
+            "TotalSF": rng.integers(800, 3000, n).astype(float),
+            "GarageCars": rng.integers(0, 3, n),
+            "TotalBath": rng.choice([1.0, 1.5, 2.0, 2.5, 3.0], n),
+            "YearBuilt": rng.integers(1950, 2010, n),
+            "TotalBsmtSF": rng.integers(0, 2000, n).astype(float),
+            "KitchenQual": rng.choice(["TA", "Gd", "Ex"], n),
+            "BsmtQual": rng.choice(["None", "TA", "Gd"], n),
+            "ExterQual": rng.choice(["TA", "Gd"], n),
+            "Neighborhood": rng.choice(["CollgCr", "NAmes", "NridgHt"], n),
+        })
+        y = pd.Series(
+            rng.integers(100_000, 400_000, n).astype(float), name="SalePrice"
+        )
+        return df, y
+
+    def test_returns_name_and_estimator(
+        self, tiny_data: tuple[pd.DataFrame, pd.Series]
+    ) -> None:
+        X, y = tiny_data
+        name, estimator = select_best_model(X, y)
+        assert isinstance(name, str)
+        assert name in _CANDIDATE_MODELS
+
+    def test_winner_is_a_candidate(
+        self, tiny_data: tuple[pd.DataFrame, pd.Series]
+    ) -> None:
+        X, y = tiny_data
+        name, _ = select_best_model(X, y)
+        assert name in _CANDIDATE_MODELS
+
+    def test_candidate_models_has_four_entries(self) -> None:
+        assert len(_CANDIDATE_MODELS) == 4
+        assert set(_CANDIDATE_MODELS) == {
+            "Ridge", "Lasso", "GradientBoosting", "RandomForest"
+        }
 
 
 class TestSaveTrainingStats:
