@@ -19,10 +19,9 @@ import pandas as pd
 from sklearn.compose import ColumnTransformer
 from sklearn.ensemble import GradientBoostingRegressor
 from sklearn.impute import SimpleImputer
-from sklearn.linear_model import Ridge
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import OrdinalEncoder, OneHotEncoder, StandardScaler
+from sklearn.preprocessing import OneHotEncoder, OrdinalEncoder, StandardScaler
 
 from src.config import (
     DATA_PROCESSED_DIR,
@@ -72,24 +71,33 @@ def build_preprocessor() -> ColumnTransformer:
         for col in ordinal_features
     ]
 
-    numeric_transformer = Pipeline([
-        ("imputer", SimpleImputer(strategy="median")),
-        ("scaler", StandardScaler()),
-    ])
+    numeric_transformer = Pipeline(
+        [
+            ("imputer", SimpleImputer(strategy="median")),
+            ("scaler", StandardScaler()),
+        ]
+    )
 
-    ordinal_transformer = Pipeline([
-        ("imputer", SimpleImputer(strategy="most_frequent")),
-        ("encoder", OrdinalEncoder(
-            categories=ordinal_categories,
-            handle_unknown="use_encoded_value",
-            unknown_value=-1,
-        )),
-    ])
+    ordinal_transformer = Pipeline(
+        [
+            ("imputer", SimpleImputer(strategy="most_frequent")),
+            (
+                "encoder",
+                OrdinalEncoder(
+                    categories=ordinal_categories,
+                    handle_unknown="use_encoded_value",
+                    unknown_value=-1,
+                ),
+            ),
+        ]
+    )
 
-    nominal_transformer = Pipeline([
-        ("imputer", SimpleImputer(strategy="most_frequent")),
-        ("encoder", OneHotEncoder(handle_unknown="ignore", sparse_output=False)),
-    ])
+    nominal_transformer = Pipeline(
+        [
+            ("imputer", SimpleImputer(strategy="most_frequent")),
+            ("encoder", OneHotEncoder(handle_unknown="ignore", sparse_output=False)),
+        ]
+    )
 
     return ColumnTransformer(
         transformers=[
@@ -114,13 +122,17 @@ def build_pipeline(model: Any) -> Pipeline:
     Returns:
         Unfitted Pipeline(preprocessor, model).
     """
-    return Pipeline([
-        ("preprocessor", build_preprocessor()),
-        ("model", model),
-    ])
+    return Pipeline(
+        [
+            ("preprocessor", build_preprocessor()),
+            ("model", model),
+        ]
+    )
 
 
-def _compute_metrics(y_true: pd.Series, y_pred: np.ndarray) -> dict[str, float]:
+def _compute_metrics(
+    y_true: pd.Series, y_pred: "np.ndarray[Any, np.dtype[np.floating[Any]]]"
+) -> dict[str, float]:
     """Compute RMSE, MAE, and R² in original dollar scale.
 
     Args:
@@ -252,9 +264,14 @@ def save_training_stats(
 # Script entry-point: retrain from processed data and re-serialize
 # ---------------------------------------------------------------------------
 
+
 def _load_processed_splits() -> tuple[
-    pd.DataFrame, pd.DataFrame, pd.DataFrame,
-    pd.Series, pd.Series, pd.Series,
+    pd.DataFrame,
+    pd.DataFrame,
+    pd.DataFrame,
+    pd.Series,
+    pd.Series,
+    pd.Series,
 ]:
     """Load the six processed CSV files from data/processed/.
 
@@ -264,6 +281,7 @@ def _load_processed_splits() -> tuple[
     Raises:
         FileNotFoundError: If any processed CSV is missing.
     """
+
     def _load_X(name: str) -> pd.DataFrame:
         path = DATA_PROCESSED_DIR / f"{name}.csv"
         if not path.exists():

@@ -58,7 +58,7 @@ class ExtractedFeatures(BaseModel):
         default=None,
         ge=1,
         le=10,
-        description="Overall material and finish quality (1=Very Poor … 10=Very Excellent)",
+        description="Overall quality rating (1=Very Poor, 10=Very Excellent)",
     )
     TotalSF: Optional[float] = Field(
         default=None,
@@ -200,7 +200,7 @@ class InsightRequest(BaseModel):
     query: str = Field(
         ...,
         min_length=3,
-        description="Natural-language market question (e.g. 'average price in NridgHt?').",
+        description="Natural-language market question (e.g. 'avg price in NridgHt?').",
     )
 
 
