@@ -27,6 +27,7 @@ RUN pip install --no-cache-dir --upgrade pip && \
 # --- Application code ---
 COPY src/ ./src/
 COPY app/ ./app/
+COPY ui/ ./ui/
 
 # --- Pre-trained model artifacts ---
 # The model is baked into the image so the container is self-contained.

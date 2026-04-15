@@ -1,4 +1,4 @@
-"""Streamlit UI for the AI Real Estate Agent.
+"""Streamlit frontend for the AI Real Estate Agent.
 
 Two-step prediction flow:
     Step 1 — User enters a natural-language property description.

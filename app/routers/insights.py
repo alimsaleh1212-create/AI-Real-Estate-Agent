@@ -6,7 +6,8 @@ from fastapi import APIRouter
 
 from src.llm_chain import classify_intent, generate_market_insights
 from src.predictor import get_stats
-from src.schemas import InsightRequest, InsightResponse
+
+from app.schemas import InsightRequest, InsightResponse
 
 logger = logging.getLogger(__name__)
 

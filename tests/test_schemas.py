@@ -1,4 +1,4 @@
-"""Tests for src/schemas.py.
+"""Tests for schemas (src/schemas.py and app/schemas.py).
 
 Covers: ExtractedFeatures validation, confidence computation, properties,
 to_feature_dict column ordering, request/response schemas.
@@ -7,14 +7,13 @@ to_feature_dict column ordering, request/response schemas.
 import pytest
 from pydantic import ValidationError
 
-from src.schemas import (
-    Confidence,
-    ExtractedFeatures,
+from app.schemas import (
     InsightRequest,
     InsightResponse,
     PredictionRequest,
     PredictionResponse,
 )
+from src.schemas import Confidence, ExtractedFeatures
 
 _FEATURE_NAMES = [
     "OverallQual", "TotalSF", "GarageCars", "TotalBath", "YearBuilt",

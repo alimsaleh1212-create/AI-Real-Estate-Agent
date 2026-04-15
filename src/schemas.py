@@ -1,14 +1,10 @@
-"""Pydantic schemas for the AI Real Estate Agent.
+"""Shared domain schema for the AI Real Estate Agent.
 
-Defines the data contracts between LLM Stage 1, the ML model,
-LLM Stage 2, and the FastAPI layer. All I/O validation happens here.
+Defines the central data contract between LLM Stage 1, the ML predictor,
+and LLM Stage 2. FastAPI request/response schemas live in app/schemas.py.
 
 Schemas:
-    ExtractedFeatures   — Stage 1 output; 10 optional feature fields.
-    PredictionRequest   — /predict endpoint input.
-    PredictionResponse  — /predict endpoint output.
-    InsightRequest      — /insights endpoint input (bonus).
-    InsightResponse     — /insights endpoint output (bonus).
+    ExtractedFeatures — Stage 1 output; 10 optional feature fields.
 """
 
 from enum import Enum
@@ -163,51 +159,3 @@ class ExtractedFeatures(BaseModel):
         become NaN, which the Pipeline's SimpleImputer handles.
         """
         return {name: getattr(self, name) for name in _FEATURE_NAMES}
-
-
-# ---------------------------------------------------------------------------
-# Request / Response schemas for FastAPI endpoints
-# ---------------------------------------------------------------------------
-
-
-class PredictionRequest(BaseModel):
-    """Input to the POST /predict endpoint."""
-
-    query: str = Field(
-        ...,
-        min_length=3,
-        description="Natural-language property description from the user.",
-    )
-
-
-class PredictionResponse(BaseModel):
-    """Output from the POST /predict endpoint.
-
-    ``error`` is non-None only when the pipeline failed gracefully;
-    in that case predicted_price and interpretation will be None.
-    """
-
-    query: str
-    extracted_features: ExtractedFeatures
-    predicted_price: Optional[float] = None
-    interpretation: Optional[str] = None
-    error: Optional[str] = None
-
-
-class InsightRequest(BaseModel):
-    """Input to the POST /insights endpoint (bonus market-analysis route)."""
-
-    query: str = Field(
-        ...,
-        min_length=3,
-        description="Natural-language market question (e.g. 'avg price in NridgHt?').",
-    )
-
-
-class InsightResponse(BaseModel):
-    """Output from the POST /insights endpoint."""
-
-    query: str
-    intent: str = Field(description="Classified intent: 'prediction' or 'analysis'.")
-    answer: Optional[str] = None
-    error: Optional[str] = None

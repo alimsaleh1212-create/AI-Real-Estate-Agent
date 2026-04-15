@@ -8,11 +8,9 @@ from fastapi import APIRouter
 from src.config import FEATURE_DEFINITIONS
 from src.llm_chain import ExtractionError, extract_features, predict_and_interpret
 from src.predictor import get_stats, predict_price
-from src.schemas import (
-    ExtractedFeatures,
-    PredictionRequest,
-    PredictionResponse,
-)
+from src.schemas import ExtractedFeatures
+
+from app.schemas import PredictionRequest, PredictionResponse
 
 logger = logging.getLogger(__name__)
 
