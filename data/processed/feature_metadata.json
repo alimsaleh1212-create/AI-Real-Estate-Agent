@@ -1,52 +1,5 @@
 {
-  "ordinal": [
-    "ExterQual",
-    "ExterCond",
-    "BsmtQual",
-    "BsmtCond",
-    "HeatingQC",
-    "KitchenQual",
-    "FireplaceQu",
-    "GarageQual",
-    "GarageCond",
-    "PoolQC",
-    "BsmtExposure",
-    "BsmtFinType1",
-    "BsmtFinType2",
-    "GarageFinish",
-    "Functional",
-    "LandSlope",
-    "LotShape",
-    "PavedDrive",
-    "Fence"
-  ],
-  "nominal": [
-    "MSZoning",
-    "Street",
-    "Alley",
-    "LandContour",
-    "Utilities",
-    "LotConfig",
-    "Neighborhood",
-    "Condition1",
-    "Condition2",
-    "BldgType",
-    "HouseStyle",
-    "RoofStyle",
-    "RoofMatl",
-    "Exterior1st",
-    "Exterior2nd",
-    "MasVnrType",
-    "Foundation",
-    "Heating",
-    "CentralAir",
-    "Electrical",
-    "GarageType",
-    "MiscFeature",
-    "SaleType",
-    "SaleCondition"
-  ],
-  "numeric": [
+  "numeric_features": [
     "MSSubClass",
     "LotFrontage",
     "LotArea",
@@ -89,11 +42,52 @@
     "TotalBath",
     "HasRemodel"
   ],
-  "engineered": [
-    "TotalSF",
-    "HouseAge",
-    "TotalBath",
-    "HasRemodel"
+  "ordinal_features": [
+    "ExterQual",
+    "ExterCond",
+    "BsmtQual",
+    "BsmtCond",
+    "HeatingQC",
+    "KitchenQual",
+    "FireplaceQu",
+    "GarageQual",
+    "GarageCond",
+    "PoolQC"
+  ],
+  "nominal_features": [
+    "MSZoning",
+    "Street",
+    "Alley",
+    "LotShape",
+    "LandContour",
+    "Utilities",
+    "LotConfig",
+    "LandSlope",
+    "Neighborhood",
+    "Condition1",
+    "Condition2",
+    "BldgType",
+    "HouseStyle",
+    "RoofStyle",
+    "RoofMatl",
+    "Exterior1st",
+    "Exterior2nd",
+    "MasVnrType",
+    "Foundation",
+    "BsmtExposure",
+    "BsmtFinType1",
+    "BsmtFinType2",
+    "Heating",
+    "CentralAir",
+    "Electrical",
+    "Functional",
+    "GarageType",
+    "GarageFinish",
+    "PavedDrive",
+    "Fence",
+    "MiscFeature",
+    "SaleType",
+    "SaleCondition"
   ],
   "ordinal_orders": {
     "ExterQual": [
@@ -175,70 +169,18 @@
       "TA",
       "Gd",
       "Ex"
-    ],
-    "BsmtExposure": [
-      "None",
-      "No",
-      "Mn",
-      "Av",
-      "Gd"
-    ],
-    "BsmtFinType1": [
-      "None",
-      "Unf",
-      "LwQ",
-      "Rec",
-      "BLQ",
-      "ALQ",
-      "GLQ"
-    ],
-    "BsmtFinType2": [
-      "None",
-      "Unf",
-      "LwQ",
-      "Rec",
-      "BLQ",
-      "ALQ",
-      "GLQ"
-    ],
-    "GarageFinish": [
-      "None",
-      "Unf",
-      "RFn",
-      "Fin"
-    ],
-    "Functional": [
-      "Sal",
-      "Sev",
-      "Maj2",
-      "Maj1",
-      "Mod",
-      "Min2",
-      "Min1",
-      "Typ"
-    ],
-    "LandSlope": [
-      "Sev",
-      "Mod",
-      "Gtl"
-    ],
-    "LotShape": [
-      "IR3",
-      "IR2",
-      "IR1",
-      "Reg"
-    ],
-    "PavedDrive": [
-      "N",
-      "P",
-      "Y"
-    ],
-    "Fence": [
-      "None",
-      "MnWw",
-      "GdWo",
-      "MnPrv",
-      "GdPrv"
     ]
-  }
+  },
+  "selected_features": [
+    "OverallQual",
+    "TotalSF",
+    "GarageCars",
+    "TotalBath",
+    "YearBuilt",
+    "TotalBsmtSF",
+    "KitchenQual",
+    "BsmtQual",
+    "Neighborhood",
+    "ExterQual"
+  ]
 }
