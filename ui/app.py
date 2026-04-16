@@ -24,7 +24,7 @@ import logging
 
 import streamlit as st
 
-from ui.styles import inject_css
+from ui.styles import inject_css, PRIMARY, SUCCESS, ERROR
 from src.config import FEATURE_DEFINITIONS, ORDINAL_ORDERS
 from src.database import log_insight, log_prediction
 from src.llm_chain import (
@@ -369,36 +369,30 @@ def main() -> None:
                     median = sp["median"]
                     pct_vs_median = (price - median) / median * 100
 
-                    delta_color = "#34D399" if pct_vs_median >= 0 else "#F87171"
+                    delta_color = SUCCESS if pct_vs_median >= 0 else ERROR
                     delta_sign = "▲" if pct_vs_median >= 0 else "▼"
                     st.markdown(f"""
 <div style="
-    background: linear-gradient(140deg,#0D1728 0%,#111E38 100%);
-    border: 1px solid rgba(232,184,75,0.28);
-    border-radius: 18px;
-    padding: 2.2rem 2.5rem 1.8rem;
-    text-align: center;
-    position: relative;
-    overflow: hidden;
-    margin: 1.8rem 0 1rem;
+    background: #18181B;
+    border: 1px solid #3F3F46;
+    border-left: 4px solid #6366F1;
+    border-radius: 10px;
+    padding: 1.75rem 2rem;
+    margin: 1.5rem 0 1rem;
 ">
-  <div style="
-    position:absolute;top:0;left:0;right:0;height:3px;
-    background:linear-gradient(90deg,transparent 0%,#E8B84B 50%,transparent 100%);
-  "></div>
-  <div style="font-family:'DM Sans',sans-serif;font-size:0.65rem;
-    letter-spacing:0.22em;text-transform:uppercase;color:#3D5070;
-    margin-bottom:0.6rem;">Estimated Market Value</div>
-  <div style="font-family:'Cormorant Garamond',Georgia,serif;font-size:3.8rem;
-    font-weight:700;color:#E8B84B;letter-spacing:-0.03em;
-    line-height:1;margin-bottom:0.8rem;">${price:,.0f}</div>
-  <div style="font-family:'DM Sans',sans-serif;font-size:0.82rem;color:#3D5070;">
-    Ames median&nbsp;
-    <span style="color:#8899BB;font-weight:500;">${median:,.0f}</span>
+  <div style="font-family:'Inter',system-ui,sans-serif;font-size:0.7rem;
+    font-weight:600;letter-spacing:0.08em;text-transform:uppercase;
+    color:#71717A;margin-bottom:0.5rem;">Estimated Market Value</div>
+  <div style="font-family:'Inter',system-ui,sans-serif;font-size:3rem;
+    font-weight:700;color:#FAFAFA;letter-spacing:-0.03em;
+    line-height:1;margin-bottom:0.6rem;font-variant-numeric:tabular-nums;">
+    ${price:,.0f}
+  </div>
+  <div style="font-family:'Inter',system-ui,sans-serif;font-size:0.875rem;color:#71717A;">
+    vs Ames median&nbsp;
+    <span style="color:#A1A1AA;font-weight:500;">${median:,.0f}</span>
     &nbsp;·&nbsp;
-    <span style="color:{delta_color};font-weight:600;">
-      {delta_sign} {abs(pct_vs_median):.1f}%
-    </span>
+    <span style="color:{delta_color};font-weight:600;">{delta_sign} {abs(pct_vs_median):.1f}%</span>
   </div>
 </div>
 """, unsafe_allow_html=True)

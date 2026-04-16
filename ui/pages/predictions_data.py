@@ -18,7 +18,7 @@ import plotly.express as px
 import streamlit as st
 
 from src.database import fetch_insights, fetch_predictions
-from ui.styles import ACCENT, GREEN, RED, inject_css, apply_plotly_layout
+from ui.styles import PRIMARY as ACCENT, SUCCESS as GREEN, ERROR as RED, WARNING, inject_css, apply_plotly_layout
 
 # ---------------------------------------------------------------------------
 # Page config
@@ -30,7 +30,6 @@ st.set_page_config(
     layout="wide",
 )
 
-_AMBER = "#F59E0B"
 
 # ---------------------------------------------------------------------------
 # Header
@@ -145,7 +144,7 @@ if not price_df.empty:
         )
         fig.add_vline(
             x=price_df["predicted_price"].median(),
-            line_dash="dash", line_color=_AMBER,
+            line_dash="dash", line_color=WARNING,
             annotation_text=f"Median ${price_df['predicted_price'].median():,.0f}",
             annotation_position="top right",
         )
@@ -249,7 +248,7 @@ if not pred_df.empty:
             fig = px.histogram(
                 pred_df[pred_df[col].notna()], x=col,
                 title="Total Floor Area Distribution",
-                color_discrete_sequence=[_AMBER],
+                color_discrete_sequence=[WARNING],
                 labels={col: "Total Floor Area (sqft)"},
                 template="plotly_dark",
             )

@@ -18,7 +18,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from src.config import DATA_PROCESSED_DIR, MODEL_PATH, SELECTED_FEATURES
-from ui.styles import ACCENT, inject_css, apply_plotly_layout
+from ui.styles import PRIMARY as ACCENT, inject_css, apply_plotly_layout, SUCCESS, CHART_SEQ
 
 # ---------------------------------------------------------------------------
 # Page config
@@ -152,7 +152,7 @@ with c1:
         annotation_position="top right",
     )
     fig.add_vline(
-        x=df["SalePrice"].mean(), line_dash="dot", line_color="#34D399",
+        x=df["SalePrice"].mean(), line_dash="dot", line_color=SUCCESS,
         annotation_text=f"Mean ${df['SalePrice'].mean():,.0f}",
         annotation_position="top left",
     )
@@ -230,7 +230,7 @@ for i, feat in enumerate(numeric_features):
             title=feat_labels[feat],
             labels={feat: feat_labels[feat], "SalePrice": "Sale Price ($)"},
             color_discrete_sequence=[ACCENT],
-            trendline_color_override="#34D399",
+            trendline_color_override=SUCCESS,
             template="plotly_dark",
             opacity=0.45,
         )
