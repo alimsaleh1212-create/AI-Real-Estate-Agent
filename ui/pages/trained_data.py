@@ -17,7 +17,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 
-from src.config import DATA_PROCESSED_DIR, MODEL_PATH, SELECTED_FEATURES
+from src.config import DATA_RAW_PATH, MODEL_PATH, SELECTED_FEATURES
 from ui.styles import PRIMARY as ACCENT, inject_css, apply_plotly_layout, SUCCESS, CHART_SEQ
 
 # ---------------------------------------------------------------------------
@@ -51,15 +51,29 @@ _PALETTE = px.colors.sequential.Plasma_r
 
 @st.cache_data(show_spinner="Loading dataset…")
 def _load_data() -> pd.DataFrame:
-    """Combine all splits into one frame with selected features + SalePrice."""
-    frames = []
-    for split in ("train", "val", "test"):
-        X = pd.read_csv(DATA_PROCESSED_DIR / f"X_{split}.csv", index_col=0)
-        y = pd.read_csv(DATA_PROCESSED_DIR / f"y_{split}.csv", index_col=0)
-        X = X[SELECTED_FEATURES].copy()
-        X["SalePrice"] = y.squeeze().values
-        frames.append(X)
-    return pd.concat(frames, ignore_index=True)
+    """Load raw CSV, engineer derived features, return selected features + SalePrice."""
+    df = pd.read_csv(DATA_RAW_PATH)
+    df.columns = (
+        df.columns.str.strip()
+        .str.replace(" ", "", regex=False)
+        .str.replace("/", "", regex=False)
+    )
+    df["SalePrice"] = pd.to_numeric(df["SalePrice"], errors="coerce")
+    df = df.dropna(subset=["SalePrice"])
+
+    df["TotalSF"] = (
+        df.get("TotalBsmtSF", 0).fillna(0)
+        + df.get("1stFlrSF", 0).fillna(0)
+        + df.get("2ndFlrSF", 0).fillna(0)
+    )
+    df["TotalBath"] = (
+        df.get("FullBath", 0).fillna(0)
+        + 0.5 * df.get("HalfBath", 0).fillna(0)
+        + df.get("BsmtFullBath", 0).fillna(0)
+        + 0.5 * df.get("BsmtHalfBath", 0).fillna(0)
+    )
+
+    return df[SELECTED_FEATURES + ["SalePrice"]].copy()
 
 
 @st.cache_resource(show_spinner="Loading model…")
