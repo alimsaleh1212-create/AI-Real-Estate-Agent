@@ -1,0 +1,54 @@
+{
+  "selected_features": [
+    "OverallQual",
+    "TotalSF",
+    "GarageCars",
+    "TotalBath",
+    "YearBuilt",
+    "TotalBsmtSF",
+    "KitchenQual",
+    "BsmtQual",
+    "ExterQual",
+    "Neighborhood"
+  ],
+  "feature_types": {
+    "numeric": [
+      "OverallQual",
+      "TotalSF",
+      "GarageCars",
+      "TotalBath",
+      "YearBuilt",
+      "TotalBsmtSF"
+    ],
+    "ordinal": [
+      "KitchenQual",
+      "BsmtQual",
+      "ExterQual"
+    ],
+    "nominal": [
+      "Neighborhood"
+    ]
+  },
+  "target_transform": "log1p",
+  "train_size": 1758,
+  "sale_price_stats": {
+    "mean": 179141.8356086462,
+    "median": 160375.0,
+    "std": 78112.14430587077,
+    "min": 12789.0,
+    "max": 755000.0,
+    "q25": 129212.5,
+    "q75": 211875.0
+  },
+  "model_name": "GradientBoosting",
+  "val_metrics": {
+    "rmse": 23250.702700261696,
+    "mae": 16016.907860178293,
+    "r2": 0.901442777294182
+  },
+  "test_metrics": {
+    "rmse": 26116.914539524892,
+    "mae": 16623.687024094077,
+    "r2": 0.9149249582362498
+  }
+}

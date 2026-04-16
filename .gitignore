@@ -49,9 +49,10 @@ data/raw/*.xlsx
 resources/
 
 # Trained model artifacts — rebuilt from notebook
-models/*.joblib
-models/*.pkl
-models/*.json
+# models/*.joblib
+# models/*.pkl
+# models/*.json
 
 # Jupyter
 .ipynb_checkpoints/
+#notebooks_temp/*.ipynb
