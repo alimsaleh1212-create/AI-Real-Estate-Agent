@@ -37,6 +37,12 @@ from src.llm_chain import (
 from src.predictor import get_stats, load_model, load_stats, predict_price
 from src.schemas import ExtractedFeatures
 
+# Debugging: pause here and wait for a debugger to attach before loading heavy resources
+#import debugpy
+#if not debugpy.is_client_connected():
+#    debugpy.listen(5678)
+#    debugpy.wait_for_client() 
+
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
@@ -127,6 +133,50 @@ def _ordinal_index(current: str | None, options: list[str]) -> int:
         return options.index(current)
     except ValueError:
         return 0
+
+
+# Numeric bounds that exactly match the widget min/max in _render_gap_form.
+# Values outside these ranges are treated as missing (None) to prevent
+# StreamlitValueBelowMinError / StreamlitValueAboveMaxError on form render.
+_NUMERIC_BOUNDS: dict[str, tuple[float, float]] = {
+    "TotalSF":    (300, 12000),
+    "TotalBsmtSF": (0, 7000),
+    "TotalBath":   (0.0, 8.0),
+    "OverallQual": (1, 10),
+    "YearBuilt":   (1872, 2010),
+}
+_GARAGE_VALID = {0, 1, 2, 3, 4}
+
+
+def _sanitize_extracted(extracted: ExtractedFeatures) -> tuple[ExtractedFeatures, list[str]]:
+    """Null-out any extracted numeric value that falls outside its widget range.
+
+    Returns the sanitized ExtractedFeatures and a list of warning messages
+    for features that were reset so the user knows why a value disappeared.
+    """
+    updates: dict[str, object] = {}
+    warnings: list[str] = []
+
+    for field, (lo, hi) in _NUMERIC_BOUNDS.items():
+        val = getattr(extracted, field)
+        if val is not None and not (lo <= val <= hi):
+            updates[field] = None
+            warnings.append(
+                f"**{_FEATURE_LABELS[field]}**: extracted value **{val}** is outside "
+                f"the valid range [{lo}–{hi}] and was cleared — please fill it in."
+            )
+
+    gc = extracted.GarageCars
+    if gc is not None and gc not in _GARAGE_VALID:
+        updates["GarageCars"] = None
+        warnings.append(
+            f"**{_FEATURE_LABELS['GarageCars']}**: extracted value **{gc}** is not "
+            f"a valid option (0–4) and was cleared — please fill it in."
+        )
+
+    if updates:
+        extracted = extracted.model_copy(update=updates)
+    return extracted, warnings
 
 
 def _render_gap_form(extracted: ExtractedFeatures) -> ExtractedFeatures:
@@ -339,19 +389,31 @@ def main() -> None:
 
         st.markdown(f"**Query:** {query}")
 
+        # Sanitize out-of-range extracted values before the form renders.
+        # An out-of-range value causes StreamlitValueBelowMinError inside the
+        # form (before the submit button is reached), which also triggers the
+        # "Missing Submit Button" Streamlit warning.  Treating such values as
+        # missing is the correct behaviour: the LLM hallucinated an implausible
+        # number, so the user must supply a valid one themselves.
+        extracted, range_warnings = _sanitize_extracted(extracted)
+        if range_warnings:
+            st.session_state["extracted"] = extracted  # persist sanitized copy
+            for msg in range_warnings:
+                st.warning(msg)
+
         with st.expander("Extracted features", expanded=True):
             ext_names = set(extracted.extracted_features)
             rows = []
-            for feat in extracted.model_fields:
+            for feat in ExtractedFeatures.model_fields:  # class access, not instance
                 if feat == "confidence":
                     continue
                 val = getattr(extracted, feat)
                 status = "✅ extracted" if feat in ext_names else "⬜ missing"
                 rows.append({
-                        "Feature": _FEATURE_LABELS.get(feat, feat),
-                        "Value": val,
-                        "Status": status,
-                    })
+                    "Feature": _FEATURE_LABELS.get(feat, feat),
+                    "Value": "—" if val is None else str(val),  # uniform str for Arrow
+                    "Status": status,
+                })
             st.dataframe(rows, use_container_width=True, hide_index=True)
 
         updated = _render_gap_form(extracted)

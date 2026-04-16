@@ -79,29 +79,85 @@ class TestExtractedFeaturesConfidence:
 
 
 class TestExtractedFeaturesValidation:
-    def test_overall_qual_too_low_raises(self) -> None:
-        with pytest.raises(ValidationError):
-            ExtractedFeatures(OverallQual=0)
+    """Out-of-range values are coerced to None (treated as missing) rather than
+    raising ValidationError.  This allows the extraction to succeed with the
+    valid features while flagging only the implausible ones as unextracted."""
 
-    def test_overall_qual_too_high_raises(self) -> None:
-        with pytest.raises(ValidationError):
-            ExtractedFeatures(OverallQual=11)
+    def test_overall_qual_too_low_becomes_none(self) -> None:
+        f = ExtractedFeatures(OverallQual=0)
+        assert f.OverallQual is None
+        assert "OverallQual" in f.missing_features
 
-    def test_total_sf_negative_raises(self) -> None:
-        with pytest.raises(ValidationError):
-            ExtractedFeatures(TotalSF=-1.0)
+    def test_overall_qual_too_high_becomes_none(self) -> None:
+        f = ExtractedFeatures(OverallQual=11)
+        assert f.OverallQual is None
+        assert "OverallQual" in f.missing_features
 
-    def test_year_built_min_raises(self) -> None:
-        with pytest.raises(ValidationError):
-            ExtractedFeatures(YearBuilt=1799)
+    def test_total_sf_below_min_becomes_none(self) -> None:
+        # TotalSF < 300 sqft is unrealistic for Ames housing
+        f = ExtractedFeatures(TotalSF=130.0)
+        assert f.TotalSF is None
+        assert "TotalSF" in f.missing_features
 
-    def test_year_built_max_raises(self) -> None:
-        with pytest.raises(ValidationError):
-            ExtractedFeatures(YearBuilt=2026)
+    def test_total_sf_negative_becomes_none(self) -> None:
+        f = ExtractedFeatures(TotalSF=-1.0)
+        assert f.TotalSF is None
 
-    def test_garage_cars_negative_raises(self) -> None:
-        with pytest.raises(ValidationError):
-            ExtractedFeatures(GarageCars=-1)
+    def test_year_built_min_becomes_none(self) -> None:
+        f = ExtractedFeatures(YearBuilt=1799)
+        assert f.YearBuilt is None
+        assert "YearBuilt" in f.missing_features
+
+    def test_year_built_max_becomes_none(self) -> None:
+        f = ExtractedFeatures(YearBuilt=2026)
+        assert f.YearBuilt is None
+
+    def test_garage_cars_negative_becomes_none(self) -> None:
+        f = ExtractedFeatures(GarageCars=-1)
+        assert f.GarageCars is None
+
+    def test_garage_cars_too_high_becomes_none(self) -> None:
+        f = ExtractedFeatures(GarageCars=6)
+        assert f.GarageCars is None
+
+    def test_invalid_kitchen_qual_becomes_none(self) -> None:
+        f = ExtractedFeatures(KitchenQual="excellent")
+        assert f.KitchenQual is None
+
+    def test_invalid_bsmt_qual_becomes_none(self) -> None:
+        f = ExtractedFeatures(BsmtQual="Good")
+        assert f.BsmtQual is None
+
+    def test_invalid_exter_qual_becomes_none(self) -> None:
+        f = ExtractedFeatures(ExterQual="Average")
+        assert f.ExterQual is None
+
+    def test_invalid_neighborhood_becomes_none(self) -> None:
+        f = ExtractedFeatures(Neighborhood="Downtown")
+        assert f.Neighborhood is None
+
+    def test_valid_values_pass_through(self) -> None:
+        """A fully valid extraction must not be modified."""
+        f = ExtractedFeatures(
+            OverallQual=8, TotalSF=2100.0, GarageCars=2, TotalBath=2.5,
+            YearBuilt=1998, TotalBsmtSF=900.0, KitchenQual="Ex",
+            BsmtQual="Gd", ExterQual="Gd", Neighborhood="NridgHt",
+        )
+        assert len(f.extracted_features) == 10
+        assert f.OverallQual == 8
+        assert f.TotalSF == 2100.0
+        assert f.Neighborhood == "NridgHt"
+
+    def test_mixed_query_extracts_valid_only(self) -> None:
+        """Simulates the original bug: OverallQual=12, TotalSF=130 in one query."""
+        f = ExtractedFeatures(
+            OverallQual=12, TotalSF=130, GarageCars=2, TotalBath=2.5,
+            YearBuilt=1998, TotalBsmtSF=900.0, KitchenQual="Ex",
+            BsmtQual="Gd", ExterQual="Gd", Neighborhood="NridgHt",
+        )
+        assert f.OverallQual is None
+        assert f.TotalSF is None
+        assert len(f.extracted_features) == 8  # 10 - 2 out-of-range
 
 
 class TestToFeatureDict:

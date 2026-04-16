@@ -72,7 +72,7 @@ def _get_model() -> Any:  # -> genai.GenerativeModel
 _EXTRACTION_CONFIG: Any = genai.GenerationConfig(  # type: ignore[attr-defined]
     temperature=0.0,  # deterministic for structured extraction
     response_mime_type="application/json",
-    max_output_tokens=512,  # ~200 tokens for 10-feature JSON; cap prevents exfiltration
+    max_output_tokens=1024,  # 10-field JSON ≈ 60 tokens; 1024 gives headroom without exfiltration risk
 )
 
 _TEXT_CONFIG: Any = genai.GenerationConfig(  # type: ignore[attr-defined]
@@ -162,22 +162,77 @@ def _parse_extraction_response(raw: str) -> dict[str, Any]:
     Handles models that wrap the JSON in markdown code fences despite
     response_mime_type='application/json' being set.
 
+    Also recovers from truncated JSON (e.g. ``'{"OverallQual": null, "'``)
+    by scanning backwards for the last complete key-value pair, closing the
+    object there, and parsing what was salvaged.  Any recovered value that is
+    out-of-range will be caught by the ExtractedFeatures model_validator.
+
     Args:
         raw: Raw text from Gemini.
 
     Returns:
-        Parsed dict.
+        Parsed dict (may be partial if the response was truncated).
 
     Raises:
-        json.JSONDecodeError: If the text cannot be parsed as JSON.
+        json.JSONDecodeError: If the text cannot be parsed even after recovery.
     """
     text = raw.strip()
     # Strip optional markdown fence
     if text.startswith("```"):
         lines = text.splitlines()
         text = "\n".join(line for line in lines if not line.startswith("```")).strip()
-    result: dict[str, Any] = json.loads(text)
-    return result
+
+    # Primary parse — the normal path
+    try:
+        result: dict[str, Any] = json.loads(text)
+        return result
+    except json.JSONDecodeError:
+        pass
+
+    # Fallback: truncated JSON recovery.
+    # Strategy 1: just close the object (works when the last value is complete
+    #   but the closing brace is missing, e.g. '{"OverallQual": null').
+    # Strategy 2: walk backwards for the last comma that ends a complete
+    #   key-value pair, close there (handles '{"OverallQual": null, "...').
+    logger.warning(
+        "Primary JSON parse failed — attempting truncated-response recovery "
+        "(raw length=%d, preview=%r)",
+        len(text),
+        text[:80],
+    )
+
+    # Strategy 1: append closing brace
+    candidate = text.rstrip().rstrip(",") + "}"
+    try:
+        recovered: dict[str, Any] = json.loads(candidate)
+        logger.info(
+            "Truncated JSON recovered (strategy 1): kept %d key(s)",
+            len(recovered),
+        )
+        return recovered
+    except json.JSONDecodeError:
+        pass
+
+    # Strategy 2: scan backwards for last comma between complete pairs
+    for i in range(len(text) - 1, 0, -1):
+        if text[i] == ",":
+            candidate = text[:i] + "}"
+            try:
+                recovered = json.loads(candidate)
+                logger.info(
+                    "Truncated JSON recovered (strategy 2): kept %d key(s)",
+                    len(recovered),
+                )
+                return recovered
+            except json.JSONDecodeError:
+                continue
+
+    # Nothing salvageable — re-raise with the original error
+    raise json.JSONDecodeError(
+        "Could not parse or recover JSON from Gemini response",
+        text,
+        0,
+    )
 
 
 def _format_features_text(features: ExtractedFeatures) -> str:

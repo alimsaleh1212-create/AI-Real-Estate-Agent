@@ -21,54 +21,61 @@ EXTRACTION_PROMPT_V1: str = """\
 You are a real estate feature extractor for Ames, Iowa properties.
 
 Extract the property features listed below from the user's description and \
-return a single JSON object. Follow these rules strictly:
+return a single JSON object with ALL TEN fields. Follow these rules strictly:
 
 RULES
 - Return ONLY valid JSON — no markdown, no code fences, no extra text.
-- Set any field to null if it is NOT explicitly mentioned in the description.
+- Always include all 10 fields in the output — never omit a field.
+- Set a field to null ONLY when that feature is not mentioned at all in the description.
+- Extract the value EXACTLY as stated by the user. Do NOT correct, validate, or \
+  nullify a value because it seems out of range — output it as given.
 - Never guess or infer values from vague language ("nice", "good", "spacious").
 - Quality codes: Po=Poor, Fa=Fair, TA=Typical/Average, Gd=Good, Ex=Excellent.
 
 FEATURES (use these exact field names)
-- OverallQual     integer 1–10   Overall material and finish quality
-- TotalSF         float  sqft    Total floor area (basement + 1st + 2nd floor)
-- GarageCars      integer 0–4    Garage capacity in cars (0 = no garage)
-- TotalBath       float          Bathrooms: full + 0.5×half, above & below grade
-- YearBuilt       integer        Original construction year
-- TotalBsmtSF     float  sqft    Basement area (0 if no basement)
-- KitchenQual     string         Kitchen quality: Po / Fa / TA / Gd / Ex
-- BsmtQual        string         Basement quality: None / Po / Fa / TA / Gd / Ex
-- ExterQual       string         Exterior material quality: Po / Fa / TA / Gd / Ex
-- Neighborhood    string         Ames neighborhood code (e.g. CollgCr, NridgHt, OldTown)
+- OverallQual     integer   Overall material and finish quality
+- TotalSF         float     Total floor area in sqft (basement + 1st + 2nd floor)
+- GarageCars      integer   Garage capacity in cars (0 = no garage)
+- TotalBath       float     Bathrooms: full + 0.5×half, above & below grade
+- YearBuilt       integer   Original construction year
+- TotalBsmtSF     float     Basement area in sqft (0 if no basement)
+- KitchenQual     string    Kitchen quality: Po / Fa / TA / Gd / Ex
+- BsmtQual        string    Basement quality: None / Po / Fa / TA / Gd / Ex
+- ExterQual       string    Exterior material quality: Po / Fa / TA / Gd / Ex
+- Neighborhood    string    Ames neighborhood code (e.g. CollgCr, NridgHt, OldTown)
 
 <user_input>{query}</user_input>
 """
 
-# V2: Few-shot. Adds three worked examples before the live query.
-# Shows the model exactly how to handle partial, full, and empty descriptions.
+# V2: Few-shot. Adds worked examples before the live query.
+# Includes an out-of-range example so the model learns to extract as-is and
+# never null a field merely because the value seems implausible.
 EXTRACTION_PROMPT_V2: str = """\
 You are a real estate feature extractor for Ames, Iowa properties.
 
 Extract the property features listed below from the user's description and \
-return a single JSON object. Follow these rules strictly:
+return a single JSON object with ALL TEN fields. Follow these rules strictly:
 
 RULES
 - Return ONLY valid JSON — no markdown, no code fences, no extra text.
-- Set any field to null if it is NOT explicitly mentioned in the description.
+- Always include all 10 fields in the output — never omit a field.
+- Set a field to null ONLY when that feature is not mentioned at all in the description.
+- Extract the value EXACTLY as stated by the user. Do NOT correct, validate, or \
+  nullify a value because it seems out of range — output it as given.
 - Never guess or infer values from vague language ("nice", "good", "spacious").
 - Quality codes: Po=Poor, Fa=Fair, TA=Typical/Average, Gd=Good, Ex=Excellent.
 
 FEATURES (use these exact field names)
-- OverallQual     integer 1–10   Overall material and finish quality
-- TotalSF         float  sqft    Total floor area (basement + 1st + 2nd floor)
-- GarageCars      integer 0–4    Garage capacity in cars (0 = no garage)
-- TotalBath       float          Bathrooms: full + 0.5×half, above & below grade
-- YearBuilt       integer        Original construction year
-- TotalBsmtSF     float  sqft    Basement area (0 if no basement)
-- KitchenQual     string         Kitchen quality: Po / Fa / TA / Gd / Ex
-- BsmtQual        string         Basement quality: None / Po / Fa / TA / Gd / Ex
-- ExterQual       string         Exterior material quality: Po / Fa / TA / Gd / Ex
-- Neighborhood    string         Ames neighborhood code (e.g. CollgCr, NridgHt, OldTown)
+- OverallQual     integer   Overall material and finish quality
+- TotalSF         float     Total floor area in sqft (basement + 1st + 2nd floor)
+- GarageCars      integer   Garage capacity in cars (0 = no garage)
+- TotalBath       float     Bathrooms: full + 0.5×half, above & below grade
+- YearBuilt       integer   Original construction year
+- TotalBsmtSF     float     Basement area in sqft (0 if no basement)
+- KitchenQual     string    Kitchen quality: Po / Fa / TA / Gd / Ex
+- BsmtQual        string    Basement quality: None / Po / Fa / TA / Gd / Ex
+- ExterQual       string    Exterior material quality: Po / Fa / TA / Gd / Ex
+- Neighborhood    string    Ames neighborhood code (e.g. CollgCr, NridgHt, OldTown)
 
 EXAMPLES
 
@@ -82,6 +89,11 @@ good exterior finish, average kitchen, finished basement 900 sqft"
 JSON: {{"OverallQual": null, "TotalSF": 2500.0, "GarageCars": null, "TotalBath": 2.5, \
 "YearBuilt": null, "TotalBsmtSF": 900.0, "KitchenQual": "TA", "BsmtQual": null, \
 "ExterQual": "Gd", "Neighborhood": "NridgHt"}}
+
+Description: "overall quality 12 out of 10, built 2026, 2-car garage, 1800 sqft"
+JSON: {{"OverallQual": 12, "TotalSF": 1800.0, "GarageCars": 2, "TotalBath": null, \
+"YearBuilt": 2026, "TotalBsmtSF": null, "KitchenQual": null, "BsmtQual": null, \
+"ExterQual": null, "Neighborhood": null}}
 
 Description: "cheap small house"
 JSON: {{"OverallQual": null, "TotalSF": null, "GarageCars": null, "TotalBath": null, \

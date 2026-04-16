@@ -7,10 +7,13 @@ Schemas:
     ExtractedFeatures — Stage 1 output; 10 optional feature fields.
 """
 
+import logging
 from enum import Enum
-from typing import Optional
+from typing import Any, Optional
 
 from pydantic import BaseModel, Field, model_validator
+
+logger = logging.getLogger(__name__)
 
 
 class Confidence(str, Enum):
@@ -119,6 +122,86 @@ class ExtractedFeatures(BaseModel):
         default_factory=dict,
         description="Per-feature extraction status; computed automatically.",
     )
+
+    @model_validator(mode="before")
+    @classmethod
+    def _coerce_out_of_range_to_none(cls, data: Any) -> Any:
+        """Nullify any field whose extracted value falls outside its domain-valid range.
+
+        Runs before Pydantic's per-field validation so out-of-range values (e.g.
+        OverallQual=12, TotalSF=130, KitchenQual="excellent") do not raise a
+        ValidationError and abort the entire extraction.  Each field is treated as
+        missing; the UI will show it as unextracted and prompt the user to fill it in.
+
+        Covers all 10 extracted features:
+          - Numeric: bounds from dataset/config (min, max inclusive)
+          - Ordinal: must be one of the accepted code strings
+          - Nominal: Neighborhood must be a known Ames neighbourhood code
+        """
+        if not isinstance(data, dict):
+            return data
+
+        # ── Numeric bounds (inclusive) ────────────────────────────────────────
+        # Derived from FEATURE_DEFINITIONS in src/config.py and the dataset.
+        _NUMERIC_BOUNDS: dict[str, tuple[float, float]] = {
+            "OverallQual": (1,    10),
+            "TotalSF":     (300,  15_000),  # <300 sqft unrealistic for Ames
+            "GarageCars":  (0,    4),
+            "TotalBath":   (0,    7),
+            "YearBuilt":   (1872, 2025),
+            "TotalBsmtSF": (0,    6_000),
+        }
+        for field, (lo, hi) in _NUMERIC_BOUNDS.items():
+            val = data.get(field)
+            if val is None:
+                continue
+            try:
+                v = float(val)
+            except (TypeError, ValueError):
+                logger.info("Extracted %s=%r is not numeric — treating as missing", field, val)
+                data[field] = None
+                continue
+            if v < lo or v > hi:
+                logger.info(
+                    "Extracted %s=%s is outside domain range [%s, %s] — treating as missing",
+                    field, val, lo, hi,
+                )
+                data[field] = None
+
+        # ── Ordinal valid sets ────────────────────────────────────────────────
+        _KITCHEN_VALID  = {"Po", "Fa", "TA", "Gd", "Ex"}
+        _BSMT_VALID     = {"None", "Po", "Fa", "TA", "Gd", "Ex"}
+        _EXTER_VALID    = {"Po", "Fa", "TA", "Gd", "Ex"}
+        _ORDINAL_CHECKS: dict[str, set[str]] = {
+            "KitchenQual": _KITCHEN_VALID,
+            "BsmtQual":    _BSMT_VALID,
+            "ExterQual":   _EXTER_VALID,
+        }
+        for field, valid_set in _ORDINAL_CHECKS.items():
+            val = data.get(field)
+            if val is not None and val not in valid_set:
+                logger.info(
+                    "Extracted %s=%r is not a valid ordinal code %s — treating as missing",
+                    field, val, sorted(valid_set),
+                )
+                data[field] = None
+
+        # ── Neighborhood valid set ────────────────────────────────────────────
+        _VALID_NEIGHBORHOODS: set[str] = {
+            "Blmngtn", "Blueste", "BrDale", "BrkSide", "ClearCr", "CollgCr",
+            "Crawfor", "Edwards", "Gilbert", "IDOTRR", "MeadowV", "Mitchel",
+            "NAmes", "NoRidge", "NPkVill", "NridgHt", "NWAmes", "OldTown",
+            "SWISU", "Sawyer", "SawyerW", "Somerst", "StoneBr", "Timber", "Veenker",
+        }
+        nbhd = data.get("Neighborhood")
+        if nbhd is not None and nbhd not in _VALID_NEIGHBORHOODS:
+            logger.info(
+                "Extracted Neighborhood=%r is not a known Ames neighbourhood — treating as missing",
+                nbhd,
+            )
+            data["Neighborhood"] = None
+
+        return data
 
     @model_validator(mode="after")
     def _compute_confidence(self) -> "ExtractedFeatures":

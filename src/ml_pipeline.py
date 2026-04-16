@@ -27,6 +27,7 @@ from sklearn.preprocessing import OneHotEncoder, OrdinalEncoder, StandardScaler
 
 from src.config import (
     DATA_PROCESSED_DIR,
+    DATA_RAW_PATH,
     FEATURE_TYPES,
     MODEL_PATH,
     ORDINAL_ORDERS,
@@ -357,22 +358,57 @@ def _load_processed_splits() -> tuple[
 
 
 if __name__ == "__main__":
+    from sklearn.model_selection import train_test_split
+
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s %(levelname)s %(name)s — %(message)s",
     )
 
-    X_train, X_val, X_test, y_train, y_val, y_test = _load_processed_splits()
+    # Load raw CSV — the ColumnTransformer handles imputation, ordinal encoding,
+    # and OHE internally, so we need raw string categoricals (e.g. Neighborhood)
+    # not the pre-encoded output from Notebook 02.
+    df = pd.read_csv(DATA_RAW_PATH)
+    df.columns = (
+        df.columns.str.strip()
+        .str.replace(" ", "", regex=False)
+        .str.replace("/", "", regex=False)
+    )
+    df["SalePrice"] = pd.to_numeric(df["SalePrice"], errors="coerce")
+    df = df.dropna(subset=["SalePrice"])
+
+    # Engineer derived features used by SELECTED_FEATURES
+    df["TotalSF"] = (
+        df.get("TotalBsmtSF", 0).fillna(0)
+        + df.get("1stFlrSF", 0).fillna(0)
+        + df.get("2ndFlrSF", 0).fillna(0)
+    )
+    df["TotalBath"] = (
+        df.get("FullBath", 0).fillna(0)
+        + 0.5 * df.get("HalfBath", 0).fillna(0)
+        + df.get("BsmtFullBath", 0).fillna(0)
+        + 0.5 * df.get("BsmtHalfBath", 0).fillna(0)
+    )
+
+    X = df[SELECTED_FEATURES]
+    y = df["SalePrice"]
+
+    X_temp, X_test, y_temp, y_test = train_test_split(
+        X, y, test_size=0.20, random_state=42
+    )
+    X_train, X_val, y_train, y_val = train_test_split(
+        X_temp, y_temp, test_size=0.25, random_state=42  # 0.25 × 0.80 = 0.20
+    )
     logger.info(
-        "Loaded splits — train:%d  val:%d  test:%d",
+        "Loaded raw CSV — train:%d  val:%d  test:%d",
         len(X_train),
         len(X_val),
         len(X_test),
     )
 
-    X_train_sel = X_train[SELECTED_FEATURES]
-    X_val_sel = X_val[SELECTED_FEATURES]
-    X_test_sel = X_test[SELECTED_FEATURES]
+    X_train_sel = X_train
+    X_val_sel = X_val
+    X_test_sel = X_test
 
     # Select best model via 5-fold CV across all 4 candidates
     best_name, best_estimator = select_best_model(X_train_sel, y_train)
