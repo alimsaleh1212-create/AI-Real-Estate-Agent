@@ -128,3 +128,59 @@ def log_insight(
         logger.debug("Logged insight to Supabase (intent=%s)", intent)
     except Exception as exc:
         logger.warning("Failed to log insight to Supabase: %s", exc)
+
+
+def fetch_predictions(limit: int = 500) -> list[dict[str, Any]]:
+    """Fetch recent rows from the predictions table, newest first.
+
+    Returns an empty list when Supabase is not configured or on error.
+
+    Args:
+        limit: Maximum number of rows to return (default 500).
+
+    Returns:
+        List of row dicts ordered by created_at descending.
+    """
+    client = _get_client()
+    if client is None:
+        return []
+    try:
+        response = (
+            client.table("predictions")
+            .select("*")
+            .order("created_at", desc=True)
+            .limit(limit)
+            .execute()
+        )
+        return response.data or []
+    except Exception as exc:
+        logger.warning("Failed to fetch predictions: %s", exc)
+        return []
+
+
+def fetch_insights(limit: int = 500) -> list[dict[str, Any]]:
+    """Fetch recent rows from the insights table, newest first.
+
+    Returns an empty list when Supabase is not configured or on error.
+
+    Args:
+        limit: Maximum number of rows to return (default 500).
+
+    Returns:
+        List of row dicts ordered by created_at descending.
+    """
+    client = _get_client()
+    if client is None:
+        return []
+    try:
+        response = (
+            client.table("insights")
+            .select("*")
+            .order("created_at", desc=True)
+            .limit(limit)
+            .execute()
+        )
+        return response.data or []
+    except Exception as exc:
+        logger.warning("Failed to fetch insights: %s", exc)
+        return []

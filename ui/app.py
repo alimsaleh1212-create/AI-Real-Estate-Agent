@@ -24,6 +24,7 @@ import logging
 
 import streamlit as st
 
+from ui.styles import inject_css
 from src.config import FEATURE_DEFINITIONS, ORDINAL_ORDERS
 from src.database import log_insight, log_prediction
 from src.llm_chain import (
@@ -249,21 +250,27 @@ def _render_gap_form(extracted: ExtractedFeatures) -> ExtractedFeatures:
 
 def main() -> None:
     """Render the full Streamlit application."""
+    inject_css()
     _init_predictor()
     _init_state()
 
-    col_hdr, col_nav = st.columns([4, 1])
+    col_hdr, col_nav1, col_nav2 = st.columns([3, 1, 1])
     with col_hdr:
         st.title("AI Real Estate Agent")
         st.caption(
             "Ames, Iowa — describe a property in plain English "
             "for an AI-powered price estimate."
         )
-    with col_nav:
+    with col_nav1:
         st.write("")
         st.write("")
-        if st.button("📊 Dataset Analytics", use_container_width=True):
-            st.switch_page("pages/dashboard.py")
+        if st.button("📊 Trained Data", use_container_width=True):
+            st.switch_page("pages/trained_data.py")
+    with col_nav2:
+        st.write("")
+        st.write("")
+        if st.button("🔮 Predictions", use_container_width=True):
+            st.switch_page("pages/predictions_data.py")
 
     step = st.session_state["step"]
 
@@ -362,19 +369,41 @@ def main() -> None:
                     median = sp["median"]
                     pct_vs_median = (price - median) / median * 100
 
-                    st.divider()
-                    st.subheader("Price Prediction")
-                    col_price, col_diff = st.columns(2)
-                    with col_price:
-                        st.metric("Estimated Price", f"${price:,.0f}")
-                    with col_diff:
-                        st.metric(
-                            "vs. Ames Median",
-                            f"${median:,.0f}",
-                            delta=f"{pct_vs_median:+.1f}%",
-                        )
+                    delta_color = "#34D399" if pct_vs_median >= 0 else "#F87171"
+                    delta_sign = "▲" if pct_vs_median >= 0 else "▼"
+                    st.markdown(f"""
+<div style="
+    background: linear-gradient(140deg,#0D1728 0%,#111E38 100%);
+    border: 1px solid rgba(232,184,75,0.28);
+    border-radius: 18px;
+    padding: 2.2rem 2.5rem 1.8rem;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+    margin: 1.8rem 0 1rem;
+">
+  <div style="
+    position:absolute;top:0;left:0;right:0;height:3px;
+    background:linear-gradient(90deg,transparent 0%,#E8B84B 50%,transparent 100%);
+  "></div>
+  <div style="font-family:'DM Sans',sans-serif;font-size:0.65rem;
+    letter-spacing:0.22em;text-transform:uppercase;color:#3D5070;
+    margin-bottom:0.6rem;">Estimated Market Value</div>
+  <div style="font-family:'Cormorant Garamond',Georgia,serif;font-size:3.8rem;
+    font-weight:700;color:#E8B84B;letter-spacing:-0.03em;
+    line-height:1;margin-bottom:0.8rem;">${price:,.0f}</div>
+  <div style="font-family:'DM Sans',sans-serif;font-size:0.82rem;color:#3D5070;">
+    Ames median&nbsp;
+    <span style="color:#8899BB;font-weight:500;">${median:,.0f}</span>
+    &nbsp;·&nbsp;
+    <span style="color:{delta_color};font-weight:600;">
+      {delta_sign} {abs(pct_vs_median):.1f}%
+    </span>
+  </div>
+</div>
+""", unsafe_allow_html=True)
 
-                    st.markdown("### Interpretation")
+                    st.markdown("#### Interpretation")
                     st.write(interpretation)
 
                     if st.button("Start Over"):

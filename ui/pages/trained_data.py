@@ -18,13 +18,14 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from src.config import DATA_PROCESSED_DIR, MODEL_PATH, SELECTED_FEATURES
+from ui.styles import ACCENT, inject_css, apply_plotly_layout
 
 # ---------------------------------------------------------------------------
 # Page config
 # ---------------------------------------------------------------------------
 
 st.set_page_config(
-    page_title="Dataset Analytics — AI Real Estate Agent",
+    page_title="Trained Data Dashboards — AI Real Estate Agent",
     page_icon="📊",
     layout="wide",
 )
@@ -42,7 +43,6 @@ _BSMT_ORDER = ["None"] + _ORDINAL_ORDER
 _BSMT_LABELS = {"None": "No Basement", **_ORDINAL_LABELS}
 
 _PALETTE = px.colors.sequential.Plasma_r
-_ACCENT = "#7C3AED"   # violet
 
 
 # ---------------------------------------------------------------------------
@@ -93,9 +93,11 @@ def _feature_importances(pipeline: object) -> pd.DataFrame:
 # Header
 # ---------------------------------------------------------------------------
 
+inject_css()
+
 col_title, col_back = st.columns([5, 1])
 with col_title:
-    st.title("📊 Dataset Analytics")
+    st.title("📊 Trained Data Dashboards")
     st.caption(
         "Ames, Iowa — 2,929 homes · 10 selected predictors · "
         "GradientBoosting winner (CV RMSE 0.1468)"
@@ -140,7 +142,7 @@ with c1:
     fig = px.histogram(
         df, x="SalePrice", nbins=60,
         title="Sale Price Histogram",
-        color_discrete_sequence=[_ACCENT],
+        color_discrete_sequence=[ACCENT],
         labels={"SalePrice": "Sale Price ($)"},
         template="plotly_dark",
     )
@@ -150,11 +152,12 @@ with c1:
         annotation_position="top right",
     )
     fig.add_vline(
-        x=df["SalePrice"].mean(), line_dash="dot", line_color="#10B981",
+        x=df["SalePrice"].mean(), line_dash="dot", line_color="#34D399",
         annotation_text=f"Mean ${df['SalePrice'].mean():,.0f}",
         annotation_position="top left",
     )
-    fig.update_layout(showlegend=False, margin=dict(t=40, b=0))
+    fig.update_layout(showlegend=False)
+    apply_plotly_layout(fig)
     st.plotly_chart(fig, use_container_width=True)
 
 with c2:
@@ -166,7 +169,8 @@ with c2:
         labels={"SalePrice": "Sale Price ($)", "OverallQual": "Overall Quality"},
         template="plotly_dark",
     )
-    fig.update_layout(showlegend=False, margin=dict(t=40, b=0))
+    fig.update_layout(showlegend=False)
+    apply_plotly_layout(fig)
     st.plotly_chart(fig, use_container_width=True)
 
 # ---------------------------------------------------------------------------
@@ -188,15 +192,14 @@ fig = go.Figure(go.Heatmap(
     zmid=0,
     text=corr.values,
     texttemplate="%{text}",
-    textfont={"size": 12},
+    textfont={"size": 12, "color": "#8899BB"},
     hovertemplate="%{x} vs %{y}: %{z}<extra></extra>",
 ))
 fig.update_layout(
     title="Pearson Correlation — Numeric Selected Features + Sale Price",
-    template="plotly_dark",
     height=420,
-    margin=dict(t=50, b=0),
 )
+apply_plotly_layout(fig)
 st.plotly_chart(fig, use_container_width=True)
 
 # ---------------------------------------------------------------------------
@@ -226,12 +229,13 @@ for i, feat in enumerate(numeric_features):
             trendline="ols",
             title=feat_labels[feat],
             labels={feat: feat_labels[feat], "SalePrice": "Sale Price ($)"},
-            color_discrete_sequence=[_ACCENT],
-            trendline_color_override="#F59E0B",
+            color_discrete_sequence=[ACCENT],
+            trendline_color_override="#34D399",
             template="plotly_dark",
-            opacity=0.5,
+            opacity=0.45,
         )
-        fig.update_layout(margin=dict(t=40, b=0), showlegend=False)
+        fig.update_layout(showlegend=False)
+        apply_plotly_layout(fig)
         st.plotly_chart(fig, use_container_width=True)
 
 # ---------------------------------------------------------------------------
@@ -257,11 +261,12 @@ for col_widget, feat, order, labels, title in [
             category_orders={feat: ordered_labels},
             title=title,
             color=feat,
-            color_discrete_sequence=px.colors.sequential.Viridis,
+            color_discrete_sequence=px.colors.sequential.Plasma_r,
             labels={feat: title, "SalePrice": "Sale Price ($)"},
             template="plotly_dark",
         )
-        fig.update_layout(showlegend=False, margin=dict(t=40, b=0))
+        fig.update_layout(showlegend=False)
+        apply_plotly_layout(fig)
         st.plotly_chart(fig, use_container_width=True)
 
 # ---------------------------------------------------------------------------
@@ -288,13 +293,11 @@ fig = px.bar(
     title="Neighbourhood Median Sale Price (sorted ascending)",
     labels={"Median Price": "Median Sale Price ($)", "Neighborhood": ""},
     template="plotly_dark",
-    height=620,
+    height=640,
 )
-fig.update_traces(textposition="outside")
-fig.update_layout(
-    coloraxis_showscale=False,
-    margin=dict(t=50, b=0, r=120),
-)
+fig.update_traces(textposition="outside", textfont_color="#8899BB")
+fig.update_layout(coloraxis_showscale=False)
+apply_plotly_layout(fig, margin=dict(t=46, b=10, l=10, r=130))
 st.plotly_chart(fig, use_container_width=True)
 
 # ---------------------------------------------------------------------------
@@ -312,17 +315,15 @@ try:
         imp_df, x="Importance", y="Feature",
         orientation="h",
         color="Importance",
-        color_continuous_scale="Viridis",
+        color_continuous_scale="Plasma",
         text=imp_df["Importance %"].apply(lambda v: f"{v:.1f}%"),
-        title="Feature Importance — contribution to GBR predictions",
+        title="Feature Importance — contribution to model predictions",
         labels={"Importance": "Importance Score", "Feature": ""},
         template="plotly_dark",
     )
-    fig.update_traces(textposition="outside")
-    fig.update_layout(
-        coloraxis_showscale=False,
-        margin=dict(t=50, b=0, r=80),
-    )
+    fig.update_traces(textposition="outside", textfont_color="#8899BB")
+    fig.update_layout(coloraxis_showscale=False)
+    apply_plotly_layout(fig, margin=dict(t=46, b=10, l=10, r=90))
     st.plotly_chart(fig, use_container_width=True)
 
     top = imp_df.iloc[-1]

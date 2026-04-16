@@ -13,6 +13,7 @@ import llm_chain in tests can mock the client before it is created.
 import json
 import logging
 import re
+from functools import lru_cache
 from typing import Any
 
 import google.generativeai as genai
@@ -99,6 +100,60 @@ def _call_gemini(prompt: str, config: Any) -> str:
     except Exception as exc:
         logger.error("Gemini API call failed: %s", exc)
         raise
+
+
+@lru_cache(maxsize=256)
+def _cached_extraction(prompt: str) -> str:
+    """LRU-cached wrapper for deterministic (temperature=0) extraction calls.
+
+    Caches up to 256 distinct prompts in memory. Safe to cache because the
+    extraction config uses temperature=0.0, so the response is deterministic.
+    Repeated identical descriptions (common in testing and demos) skip the
+    Gemini round-trip entirely.
+
+    Args:
+        prompt: Fully-formatted extraction prompt (query already embedded).
+
+    Returns:
+        Raw Gemini response text.
+    """
+    logger.debug("LRU cache miss — calling Gemini for extraction prompt")
+    return _call_gemini(prompt, _EXTRACTION_CONFIG)
+
+
+@lru_cache(maxsize=512)
+def _cached_intent(prompt: str) -> str:
+    """LRU-cached wrapper for intent classification calls.
+
+    Intent classification is deterministic and cheap, but fired on every
+    query. Caching means repeated questions (e.g. 'What is the average
+    price?') never touch the API after the first call.
+
+    Args:
+        prompt: Fully-formatted intent prompt.
+
+    Returns:
+        Raw Gemini response text.
+    """
+    logger.debug("LRU cache miss — calling Gemini for intent prompt")
+    return _call_gemini(prompt, _TEXT_CONFIG)
+
+
+@lru_cache(maxsize=256)
+def _cached_insights(prompt: str) -> str:
+    """LRU-cached wrapper for market-insights calls.
+
+    Market questions are often repeated ('median price?', 'best neighborhood?').
+    Caching avoids redundant LLM calls for identical question+stats combos.
+
+    Args:
+        prompt: Fully-formatted insights prompt (query + stats already embedded).
+
+    Returns:
+        Raw Gemini response text.
+    """
+    logger.debug("LRU cache miss — calling Gemini for insights prompt")
+    return _call_gemini(prompt, _TEXT_CONFIG)
 
 
 def _parse_extraction_response(raw: str) -> dict[str, Any]:
@@ -247,7 +302,9 @@ def extract_features(
     last_exc: Exception = ExtractionError("No attempts made")
     for attempt in range(1, 3):  # two attempts total
         try:
-            raw = _call_gemini(prompt, _EXTRACTION_CONFIG)
+            # Attempt 1 uses the LRU cache (temperature=0, response is deterministic).
+            # Attempt 2 bypasses the cache — the cached response was already invalid.
+            raw = _cached_extraction(prompt) if attempt == 1 else _call_gemini(prompt, _EXTRACTION_CONFIG)
             data = _parse_extraction_response(raw)
             features = ExtractedFeatures(**data)
             logger.info(
@@ -329,7 +386,7 @@ def classify_intent(query: str) -> str:
     """
     prompt = INTENT_PROMPT.format(query=_sanitize_query(query))
     try:
-        raw = _call_gemini(prompt, _TEXT_CONFIG).strip().lower()
+        raw = _cached_intent(prompt).strip().lower()
     except Exception as exc:
         logger.error("Intent classification failed: %s", exc)
         return "prediction"  # safe default
@@ -361,7 +418,7 @@ def generate_market_insights(query: str, stats: dict[str, Any]) -> str:
         stats_text=_format_stats_text(stats),
     )
     try:
-        answer = _call_gemini(prompt, _TEXT_CONFIG).strip()
+        answer = _cached_insights(prompt).strip()
         logger.info("Market insight generated (%d chars)", len(answer))
         return answer
     except Exception as exc:
