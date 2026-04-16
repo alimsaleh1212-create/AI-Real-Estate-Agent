@@ -6,6 +6,7 @@ from typing import Any
 from fastapi import APIRouter
 
 from src.config import FEATURE_DEFINITIONS
+from src.database import log_prediction
 from src.llm_chain import ExtractionError, extract_features, predict_and_interpret
 from src.predictor import get_stats, predict_price
 from src.schemas import ExtractedFeatures
@@ -46,20 +47,24 @@ async def predict(request: PredictionRequest) -> PredictionResponse:
         extracted = extract_features(request.query)
     except ExtractionError as exc:
         logger.error("Extraction failed for query=%r: %s", request.query[:60], exc)
+        err = (
+            "Could not parse property features from your description. "
+            "Try being more specific (e.g. '3 beds, 2000 sqft, built 2001')."
+        )
+        log_prediction(request.query, ExtractedFeatures(), None, None, err)
         return PredictionResponse(
             query=request.query,
             extracted_features=ExtractedFeatures(),
-            error=(
-                "Could not parse property features from your description. "
-                "Try being more specific (e.g. '3 beds, 2000 sqft, built 2001')."
-            ),
+            error=err,
         )
     except Exception as exc:
         logger.error("Unexpected extraction error: %s", exc)
+        err = "An unexpected error occurred. Please try again."
+        log_prediction(request.query, ExtractedFeatures(), None, None, err)
         return PredictionResponse(
             query=request.query,
             extracted_features=ExtractedFeatures(),
-            error="An unexpected error occurred. Please try again.",
+            error=err,
         )
 
     # ML prediction — None fields imputed by pipeline's SimpleImputer
@@ -67,10 +72,12 @@ async def predict(request: PredictionRequest) -> PredictionResponse:
         price = predict_price(extracted)
     except Exception as exc:
         logger.error("Prediction failed: %s", exc)
+        err = f"Price prediction failed: {exc}"
+        log_prediction(request.query, extracted, None, None, err)
         return PredictionResponse(
             query=request.query,
             extracted_features=extracted,
-            error=f"Price prediction failed: {exc}",
+            error=err,
         )
 
     # Stage 2 — generate plain-English interpretation
@@ -79,13 +86,16 @@ async def predict(request: PredictionRequest) -> PredictionResponse:
         interpretation = predict_and_interpret(extracted, price, stats)
     except Exception as exc:
         logger.error("Interpretation failed: %s", exc)
+        err = "Price prediction succeeded but interpretation is unavailable."
+        log_prediction(request.query, extracted, price, None, err)
         return PredictionResponse(
             query=request.query,
             extracted_features=extracted,
             predicted_price=price,
-            error="Price prediction succeeded but interpretation is unavailable.",
+            error=err,
         )
 
+    log_prediction(request.query, extracted, price, interpretation, None)
     return PredictionResponse(
         query=request.query,
         extracted_features=extracted,

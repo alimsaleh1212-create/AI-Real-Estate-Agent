@@ -13,11 +13,19 @@ Calls src functions directly (no HTTP) so it can run standalone without
 the FastAPI server being up.
 """
 
+import sys
+from pathlib import Path
+
+# Ensure the project root is on sys.path so `src` is importable when
+# Streamlit is launched from inside the ui/ directory or via Docker.
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
 import logging
 
 import streamlit as st
 
 from src.config import FEATURE_DEFINITIONS, ORDINAL_ORDERS
+from src.database import log_insight, log_prediction
 from src.llm_chain import (
     ExtractionError,
     classify_intent,
@@ -290,8 +298,10 @@ def main() -> None:
                     try:
                         stats = get_stats()
                         answer = generate_market_insights(query, stats)
+                        log_insight(query, intent, answer, None)
                         st.info(answer)
                     except Exception as exc:
+                        log_insight(query, intent, None, str(exc))
                         st.error(f"Could not generate insights: {exc}")
             else:
                 with st.spinner("Extracting property features with AI…"):
@@ -346,6 +356,7 @@ def main() -> None:
                     price = predict_price(updated)
                     stats = get_stats()
                     interpretation = predict_and_interpret(updated, price, stats)
+                    log_prediction(query, updated, price, interpretation, None)
 
                     sp = stats.get("sale_price_stats", stats)
                     median = sp["median"]
@@ -371,6 +382,7 @@ def main() -> None:
                         st.rerun()
 
                 except Exception as exc:
+                    log_prediction(query, updated, None, None, str(exc))
                     st.error(f"Prediction failed: {exc}")
 
         if st.button("← Back"):

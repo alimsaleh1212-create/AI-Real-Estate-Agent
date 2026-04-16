@@ -4,6 +4,7 @@ import logging
 
 from fastapi import APIRouter
 
+from src.database import log_insight
 from src.llm_chain import classify_intent, generate_market_insights
 from src.predictor import get_stats
 
@@ -30,28 +31,21 @@ async def insights(request: InsightRequest) -> InsightResponse:
     intent = classify_intent(request.query)
 
     if intent == "prediction":
-        return InsightResponse(
-            query=request.query,
-            intent=intent,
-            answer=(
-                "Your query looks like a price prediction request. "
-                "Send it to the /predict endpoint instead."
-            ),
+        answer = (
+            "Your query looks like a price prediction request. "
+            "Send it to the /predict endpoint instead."
         )
+        log_insight(request.query, intent, answer, None)
+        return InsightResponse(query=request.query, intent=intent, answer=answer)
 
     try:
         stats = get_stats()
         answer = generate_market_insights(request.query, stats)
     except Exception as exc:
         logger.error("Market insights failed: %s", exc)
-        return InsightResponse(
-            query=request.query,
-            intent=intent,
-            error=f"Could not generate market insights: {exc}",
-        )
+        err = f"Could not generate market insights: {exc}"
+        log_insight(request.query, intent, None, err)
+        return InsightResponse(query=request.query, intent=intent, error=err)
 
-    return InsightResponse(
-        query=request.query,
-        intent=intent,
-        answer=answer,
-    )
+    log_insight(request.query, intent, answer, None)
+    return InsightResponse(query=request.query, intent=intent, answer=answer)
