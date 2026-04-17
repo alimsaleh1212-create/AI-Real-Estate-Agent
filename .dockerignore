@@ -6,7 +6,7 @@
 .env
 .env.*
 
-# Python artifacts — rebuilt by pip install inside container
+# Python artifacts — rebuilt by uv inside container
 __pycache__/
 *.py[cod]
 .venv/
@@ -31,5 +31,10 @@ htmlcov/
 docker-compose*.yml
 Dockerfile
 
-# Raw data — model is baked in; data is not needed at runtime
-data/
+# Processed CSV splits not needed at runtime — raw CSV is required by the dashboard
+data/processed/
+
+# Dev-only data files
+notebooks_temp/
+skills/
+resources/

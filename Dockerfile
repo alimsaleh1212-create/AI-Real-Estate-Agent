@@ -1,45 +1,51 @@
-# --- Base image ---
-# python:3.11-slim is a minimal Debian image with only the Python runtime.
-# Keeps the final image small (~150 MB vs ~900 MB for the full image).
+# syntax=docker/dockerfile:1
+# ── Base ─────────────────────────────────────────────────────────────────────
+# python:3.11-slim — minimal Debian image (~150 MB vs ~900 MB full).
 FROM python:3.11-slim
 
-# Set working directory for all subsequent instructions.
 WORKDIR /app
 
-# Ensure /app is always on sys.path — required for `import src` when
-# streamlit replaces sys.path[0] with the script's directory.
-ENV PYTHONPATH=/app
+# Disable .pyc generation; force stdout/stderr flushing for log visibility.
+ENV PYTHONPATH=/app \
+    PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1
 
-# --- Dependency layer (cached unless pyproject.toml changes) ---
-# Copy only the manifest first so Docker can cache this layer.
-# Rebuilding deps only happens when pyproject.toml or uv.lock changes.
+# ── uv ───────────────────────────────────────────────────────────────────────
+# Copy the uv binary from the official image — pinned for reproducible builds.
+COPY --from=ghcr.io/astral-sh/uv:0.11.3 /uv /usr/local/bin/uv
+
+# ── Dependencies (cached layer) ───────────────────────────────────────────────
+# Copy manifests first so Docker reuses this layer until they change.
 COPY pyproject.toml uv.lock ./
 
-# Install production dependencies from pyproject.toml.
-# --no-cache-dir prevents pip from storing the download cache inside the image.
-# We install the project itself later (COPY src/ below), but installing deps
-# first leverages Docker layer caching during iterative builds.
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir $(python -c \
-        "import tomllib; d=tomllib.load(open('pyproject.toml','rb')); \
-         print(' '.join(d['project']['dependencies']))")
+# Install production deps from the lockfile exactly — no floating versions.
+# --frozen: treat uv.lock as authoritative, fail if it is out of date.
+# --no-dev: exclude test/lint/notebook tooling from the image.
+# --no-install-project: the project itself is plain source, not a package.
+RUN uv sync --frozen --no-dev --no-install-project
 
-# --- Application code ---
-COPY src/ ./src/
-COPY app/ ./app/
-COPY ui/ ./ui/
+# Add the venv to PATH so uvicorn / streamlit are callable as plain commands.
+ENV PATH="/app/.venv/bin:$PATH"
 
-# --- Pre-trained model artifacts ---
-# The model is baked into the image so the container is self-contained.
-# Re-build the image after retraining to update the embedded model.
-COPY models/ ./models/
+# ── Application code ──────────────────────────────────────────────────────────
+COPY src/         ./src/
+COPY app/         ./app/
+COPY ui/          ./ui/
+COPY .streamlit/  ./.streamlit/
 
-# --- Ports ---
-# 8000: FastAPI (uvicorn)
-# 8501: Streamlit
-# EXPOSE is documentation — actual port binding is done in docker-compose.
+# ── Artifacts ─────────────────────────────────────────────────────────────────
+# Pre-trained model — baked into the image so the container is self-contained.
+# Retrain → rebuild the image to embed the new model.
+COPY models/      ./models/
+
+# Raw dataset — required by the Streamlit analytics dashboard at runtime.
+COPY data/raw/    ./data/raw/
+
+# ── Ports ─────────────────────────────────────────────────────────────────────
+# 8000: FastAPI (uvicorn) | 8501: Streamlit
+# EXPOSE is documentation only; port binding is defined in docker-compose.
 EXPOSE 8000 8501
 
-# --- Default command: run FastAPI ---
-# Override this in docker-compose for the Streamlit service.
+# ── Default command ───────────────────────────────────────────────────────────
+# Runs FastAPI. The Streamlit service overrides this in docker-compose.
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
