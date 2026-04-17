@@ -433,7 +433,7 @@ def main() -> None:
 """, unsafe_allow_html=True)
 
                     st.markdown("#### Interpretation")
-                    st.write(interpretation)
+                    st.markdown(interpretation.replace("$", r"\$"))
 
                     if st.button("Start Over"):
                         _reset_state()
