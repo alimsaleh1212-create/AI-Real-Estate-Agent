@@ -41,7 +41,7 @@ htmlcov/
 .mypy_cache/
 
 # Raw data — large files, not for version control
-data/raw/AmesHousing.csv
+# AmesHousing.csv is tracked so Render can build the Docker image from GitHub
 data/raw/*.parquet
 data/raw/*.xlsx
 

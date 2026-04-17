@@ -1,0 +1,35 @@
+services:
+  # ── FastAPI backend ────────────────────────────────────────────────────────
+  - type: web
+    name: ai-real-estate-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    # Override Dockerfile CMD so the app binds to Render's injected $PORT.
+    dockerCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: GOOGLE_API_KEY
+        sync: false          # secret — entered manually in Render dashboard
+      - key: SUPABASE_URL
+        sync: false          # optional — leave blank if not using Supabase
+      - key: SUPABASE_KEY
+        sync: false
+
+  # ── Streamlit UI ───────────────────────────────────────────────────────────
+  # Calls src/ functions directly — does not depend on the API service.
+  - type: web
+    name: ai-real-estate-ui
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerCommand: >-
+      streamlit run ui/app.py
+      --server.port $PORT
+      --server.address 0.0.0.0
+      --server.headless true
+    envVars:
+      - key: GOOGLE_API_KEY
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_KEY
+        sync: false
