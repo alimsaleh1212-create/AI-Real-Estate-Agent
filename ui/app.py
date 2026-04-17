@@ -25,7 +25,17 @@ import logging
 import streamlit as st
 
 from ui.styles import inject_css, PRIMARY, SUCCESS, ERROR
-from src.config import FEATURE_DEFINITIONS, ORDINAL_ORDERS
+from src.config import (
+    BSMT_QUALITY_CODES,
+    FEATURE_DEFINITIONS,
+    FEATURE_LABELS,
+    NEIGHBORHOODS,
+    NUMERIC_FEATURE_BOUNDS,
+    ORDINAL_ORDERS,
+    QUALITY_CODES,
+    QUALITY_DISPLAY,
+    VALID_GARAGE_CARS,
+)
 from src.database import log_insight, log_prediction
 from src.llm_chain import (
     ExtractionError,
@@ -59,19 +69,6 @@ st.set_page_config(
 # One-time resource loading (cached per process — model loaded once)
 # ---------------------------------------------------------------------------
 
-_FEATURE_LABELS: dict[str, str] = {
-    "OverallQual": "Overall Quality (1–10)",
-    "TotalSF": "Total Floor Area (sqft)",
-    "GarageCars": "Garage Capacity (cars)",
-    "TotalBath": "Total Bathrooms",
-    "YearBuilt": "Year Built",
-    "TotalBsmtSF": "Basement Area (sqft)",
-    "KitchenQual": "Kitchen Quality",
-    "BsmtQual": "Basement Quality",
-    "ExterQual": "Exterior Material Quality",
-    "Neighborhood": "Neighborhood",
-}
-
 _PROMPT_EXAMPLE = (
     "**Example:** \"3-bedroom, 2-story home in Northridge Heights, built in 1998. "
     "Total living area is 2,100 sqft with a 900 sqft finished basement "
@@ -79,23 +76,6 @@ _PROMPT_EXAMPLE = (
     "2-car garage, 2.5 bathrooms, excellent kitchen, good exterior finish, "
     "overall quality rating 8 out of 10.\""
 )
-
-_ORDINAL_VALUES = ["None", "Po", "Fa", "TA", "Gd", "Ex"]
-_QUALITY_LABELS = {
-    "None": "None (no basement)",
-    "Po": "Po — Poor",
-    "Fa": "Fa — Fair",
-    "TA": "TA — Typical/Average",
-    "Gd": "Gd — Good",
-    "Ex": "Ex — Excellent",
-}
-_ORDINAL_DISPLAY = [_QUALITY_LABELS[v] for v in _ORDINAL_VALUES]
-_NEIGHBORHOODS = [
-    "Blmngtn", "Blueste", "BrDale", "BrkSide", "ClearCr", "CollgCr",
-    "Crawfor", "Edwards", "Gilbert", "IDOTRR", "MeadowV", "Mitchel",
-    "NAmes", "NoRidge", "NPkVill", "NridgHt", "NWAmes", "OldTown",
-    "SWISU", "Sawyer", "SawyerW", "Somerst", "StoneBr", "Timber", "Veenker",
-]
 
 
 @st.cache_resource(show_spinner="Loading model…")
@@ -135,17 +115,6 @@ def _ordinal_index(current: str | None, options: list[str]) -> int:
         return 0
 
 
-# Numeric bounds that exactly match the widget min/max in _render_gap_form.
-# Values outside these ranges are treated as missing (None) to prevent
-# StreamlitValueBelowMinError / StreamlitValueAboveMaxError on form render.
-_NUMERIC_BOUNDS: dict[str, tuple[float, float]] = {
-    "TotalSF":    (300, 12000),
-    "TotalBsmtSF": (0, 7000),
-    "TotalBath":   (0.0, 8.0),
-    "OverallQual": (1, 10),
-    "YearBuilt":   (1872, 2010),
-}
-_GARAGE_VALID = {0, 1, 2, 3, 4}
 
 
 def _sanitize_extracted(extracted: ExtractedFeatures) -> tuple[ExtractedFeatures, list[str]]:
@@ -157,20 +126,20 @@ def _sanitize_extracted(extracted: ExtractedFeatures) -> tuple[ExtractedFeatures
     updates: dict[str, object] = {}
     warnings: list[str] = []
 
-    for field, (lo, hi) in _NUMERIC_BOUNDS.items():
+    for field, (lo, hi) in NUMERIC_FEATURE_BOUNDS.items():
         val = getattr(extracted, field)
         if val is not None and not (lo <= val <= hi):
             updates[field] = None
             warnings.append(
-                f"**{_FEATURE_LABELS[field]}**: extracted value **{val}** is outside "
+                f"**{FEATURE_LABELS[field]}**: extracted value **{val}** is outside "
                 f"the valid range [{lo}–{hi}] and was cleared — please fill it in."
             )
 
     gc = extracted.GarageCars
-    if gc is not None and gc not in _GARAGE_VALID:
+    if gc is not None and gc not in VALID_GARAGE_CARS:
         updates["GarageCars"] = None
         warnings.append(
-            f"**{_FEATURE_LABELS['GarageCars']}**: extracted value **{gc}** is not "
+            f"**{FEATURE_LABELS['GarageCars']}**: extracted value **{gc}** is not "
             f"a valid option (0–4) and was cleared — please fill it in."
         )
 
@@ -200,86 +169,90 @@ def _render_gap_form(extracted: ExtractedFeatures) -> ExtractedFeatures:
         col1, col2 = st.columns(2)
 
         with col1:
+            _oq = NUMERIC_FEATURE_BOUNDS["OverallQual"]
             updates["OverallQual"] = st.slider(
-                _FEATURE_LABELS["OverallQual"],
-                min_value=1, max_value=10,
+                FEATURE_LABELS["OverallQual"],
+                min_value=int(_oq[0]), max_value=int(_oq[1]),
                 value=extracted.OverallQual or 6,
                 help=FEATURE_DEFINITIONS["OverallQual"]["description"],
             )
+            _sf = NUMERIC_FEATURE_BOUNDS["TotalSF"]
             updates["TotalSF"] = st.number_input(
-                _FEATURE_LABELS["TotalSF"],
-                min_value=300, max_value=12000,
+                FEATURE_LABELS["TotalSF"],
+                min_value=int(_sf[0]), max_value=int(_sf[1]),
                 value=int(extracted.TotalSF or 1500),
                 step=50,
                 help=FEATURE_DEFINITIONS["TotalSF"]["description"],
             )
             updates["GarageCars"] = st.selectbox(
-                _FEATURE_LABELS["GarageCars"],
-                options=[0, 1, 2, 3, 4],
+                FEATURE_LABELS["GarageCars"],
+                options=sorted(VALID_GARAGE_CARS),
                 index=extracted.GarageCars if extracted.GarageCars is not None else 2,
                 help=FEATURE_DEFINITIONS["GarageCars"]["description"],
             )
+            _tb = NUMERIC_FEATURE_BOUNDS["TotalBath"]
             updates["TotalBath"] = st.number_input(
-                _FEATURE_LABELS["TotalBath"],
-                min_value=0.0, max_value=8.0,
+                FEATURE_LABELS["TotalBath"],
+                min_value=float(_tb[0]), max_value=float(_tb[1]),
                 value=float(extracted.TotalBath or 2.0),
                 step=0.5,
                 help=FEATURE_DEFINITIONS["TotalBath"]["description"],
             )
+            _yb = NUMERIC_FEATURE_BOUNDS["YearBuilt"]
             updates["YearBuilt"] = st.slider(
-                _FEATURE_LABELS["YearBuilt"],
-                min_value=1872, max_value=2010,
+                FEATURE_LABELS["YearBuilt"],
+                min_value=int(_yb[0]), max_value=int(_yb[1]),
                 value=extracted.YearBuilt or 1990,
                 help=FEATURE_DEFINITIONS["YearBuilt"]["description"],
             )
 
         with col2:
+            _bs = NUMERIC_FEATURE_BOUNDS["TotalBsmtSF"]
             updates["TotalBsmtSF"] = st.number_input(
-                _FEATURE_LABELS["TotalBsmtSF"],
-                min_value=0, max_value=7000,
+                FEATURE_LABELS["TotalBsmtSF"],
+                min_value=int(_bs[0]), max_value=int(_bs[1]),
                 value=int(extracted.TotalBsmtSF or 0),
                 step=50,
                 help=FEATURE_DEFINITIONS["TotalBsmtSF"]["description"],
             )
-            kq_idx = _ordinal_index(extracted.KitchenQual, _ORDINAL_VALUES[1:])
-            updates["KitchenQual"] = _ORDINAL_VALUES[1:][
+            kq_idx = _ordinal_index(extracted.KitchenQual, QUALITY_CODES)
+            updates["KitchenQual"] = QUALITY_CODES[
                 st.selectbox(
-                    _FEATURE_LABELS["KitchenQual"],
-                    options=range(len(_ORDINAL_VALUES[1:])),
-                    format_func=lambda i: _QUALITY_LABELS[_ORDINAL_VALUES[1:][i]],
+                    FEATURE_LABELS["KitchenQual"],
+                    options=range(len(QUALITY_CODES)),
+                    format_func=lambda i: QUALITY_DISPLAY[QUALITY_CODES[i]],
                     index=kq_idx,
                     help=FEATURE_DEFINITIONS["KitchenQual"]["description"],
                 )
             ]
-            bq_options = ORDINAL_ORDERS["BsmtQual"]
-            bq_idx = _ordinal_index(extracted.BsmtQual, bq_options)
-            updates["BsmtQual"] = bq_options[
+            bq_idx = _ordinal_index(extracted.BsmtQual, BSMT_QUALITY_CODES)
+            updates["BsmtQual"] = BSMT_QUALITY_CODES[
                 st.selectbox(
-                    _FEATURE_LABELS["BsmtQual"],
-                    options=range(len(bq_options)),
-                    format_func=lambda i: _QUALITY_LABELS[bq_options[i]],
+                    FEATURE_LABELS["BsmtQual"],
+                    options=range(len(BSMT_QUALITY_CODES)),
+                    format_func=lambda i: QUALITY_DISPLAY[BSMT_QUALITY_CODES[i]],
                     index=bq_idx,
                     help=FEATURE_DEFINITIONS["BsmtQual"]["description"],
                 )
             ]
-            eq_idx = _ordinal_index(extracted.ExterQual, _ORDINAL_VALUES[1:])
-            updates["ExterQual"] = _ORDINAL_VALUES[1:][
+            eq_idx = _ordinal_index(extracted.ExterQual, QUALITY_CODES)
+            updates["ExterQual"] = QUALITY_CODES[
                 st.selectbox(
-                    _FEATURE_LABELS["ExterQual"],
-                    options=range(len(_ORDINAL_VALUES[1:])),
-                    format_func=lambda i: _QUALITY_LABELS[_ORDINAL_VALUES[1:][i]],
+                    FEATURE_LABELS["ExterQual"],
+                    options=range(len(QUALITY_CODES)),
+                    format_func=lambda i: QUALITY_DISPLAY[QUALITY_CODES[i]],
                     index=eq_idx,
                     help=FEATURE_DEFINITIONS["ExterQual"]["description"],
                 )
             ]
             nbhd_idx = (
-                _NEIGHBORHOODS.index(extracted.Neighborhood)
-                if extracted.Neighborhood in _NEIGHBORHOODS
+                list(NEIGHBORHOODS).index(extracted.Neighborhood)
+                if extracted.Neighborhood in NEIGHBORHOODS
                 else 0
             )
             updates["Neighborhood"] = st.selectbox(
-                _FEATURE_LABELS["Neighborhood"],
-                options=_NEIGHBORHOODS,
+                FEATURE_LABELS["Neighborhood"],
+                options=NEIGHBORHOODS,
                 index=nbhd_idx,
                 help=FEATURE_DEFINITIONS["Neighborhood"]["description"],
             )
@@ -410,7 +383,7 @@ def main() -> None:
                 val = getattr(extracted, feat)
                 status = "✅ extracted" if feat in ext_names else "⬜ missing"
                 rows.append({
-                    "Feature": _FEATURE_LABELS.get(feat, feat),
+                    "Feature": FEATURE_LABELS.get(feat, feat),
                     "Value": "—" if val is None else str(val),  # uniform str for Arrow
                     "Status": status,
                 })

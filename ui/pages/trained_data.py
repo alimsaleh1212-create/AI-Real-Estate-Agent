@@ -17,7 +17,15 @@ import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 
-from src.config import DATA_RAW_PATH, MODEL_PATH, SELECTED_FEATURES
+from src.config import (
+    BSMT_QUALITY_CODES,
+    DATA_RAW_PATH,
+    FEATURE_LABELS,
+    MODEL_PATH,
+    QUALITY_CODES,
+    QUALITY_LABELS,
+    SELECTED_FEATURES,
+)
 from ui.styles import PRIMARY as ACCENT, inject_css, apply_plotly_layout, SUCCESS, CHART_SEQ
 
 # ---------------------------------------------------------------------------
@@ -29,18 +37,6 @@ st.set_page_config(
     page_icon="📊",
     layout="wide",
 )
-
-# ---------------------------------------------------------------------------
-# Constants
-# ---------------------------------------------------------------------------
-
-_ORDINAL_ORDER = ["Po", "Fa", "TA", "Gd", "Ex"]
-_ORDINAL_LABELS = {
-    "Po": "Poor", "Fa": "Fair", "TA": "Typical",
-    "Gd": "Good", "Ex": "Excellent",
-}
-_BSMT_ORDER = ["None"] + _ORDINAL_ORDER
-_BSMT_LABELS = {"None": "No Basement", **_ORDINAL_LABELS}
 
 _PALETTE = px.colors.sequential.Plasma_r
 
@@ -225,14 +221,7 @@ st.subheader("📈 Numeric Features vs Sale Price")
 
 numeric_features = ["OverallQual", "TotalSF", "TotalBsmtSF",
                     "GarageCars", "TotalBath", "YearBuilt"]
-feat_labels = {
-    "OverallQual": "Overall Quality (1–10)",
-    "TotalSF": "Total Floor Area (sqft)",
-    "TotalBsmtSF": "Basement Area (sqft)",
-    "GarageCars": "Garage Capacity (cars)",
-    "TotalBath": "Total Bathrooms",
-    "YearBuilt": "Year Built",
-}
+feat_labels = FEATURE_LABELS
 
 cols = st.columns(3)
 for i, feat in enumerate(numeric_features):
@@ -262,9 +251,9 @@ st.subheader("🏆 Quality Features vs Sale Price")
 q1, q2, q3 = st.columns(3)
 
 for col_widget, feat, order, labels, title in [
-    (q1, "KitchenQual", _ORDINAL_ORDER, _ORDINAL_LABELS, "Kitchen Quality"),
-    (q2, "ExterQual", _ORDINAL_ORDER, _ORDINAL_LABELS, "Exterior Quality"),
-    (q3, "BsmtQual", _BSMT_ORDER, _BSMT_LABELS, "Basement Quality"),
+    (q1, "KitchenQual", QUALITY_CODES, QUALITY_LABELS, "Kitchen Quality"),
+    (q2, "ExterQual",   QUALITY_CODES, QUALITY_LABELS, "Exterior Quality"),
+    (q3, "BsmtQual",    BSMT_QUALITY_CODES, QUALITY_LABELS, "Basement Quality"),
 ]:
     with col_widget:
         plot_df = df[df[feat].isin(order)].copy()

@@ -17,10 +17,25 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # ---------------------------------------------------------------------------
-# LLM
+# LLM — model name and runtime tunables
 # ---------------------------------------------------------------------------
 
 GEMINI_MODEL: str = "gemini-2.5-flash"
+
+# Generation temperatures: 0.0 = deterministic (extraction), 0.7 = creative (text)
+LLM_EXTRACTION_TEMPERATURE: float = 0.0
+LLM_TEXT_TEMPERATURE: float = 0.7
+
+# Token budget per call (10-field JSON ≈ 60 tokens; narrative ≈ 150 tokens)
+LLM_MAX_OUTPUT_TOKENS: int = 1024
+
+# LRU cache capacities for repeated identical prompts
+LLM_EXTRACTION_CACHE_SIZE: int = 256
+LLM_INTENT_CACHE_SIZE: int = 512
+LLM_INSIGHTS_CACHE_SIZE: int = 256
+
+# Maximum characters accepted from user input before truncation
+MAX_QUERY_LENGTH: int = 500
 
 
 def get_google_api_key() -> str:
@@ -88,6 +103,82 @@ ORDINAL_ORDERS: dict[str, list[str]] = {
     "KitchenQual": _QUALITY_ORDER,
     "BsmtQual": _QUALITY_ORDER,
     "ExterQual": _QUALITY_ORDER,
+}
+
+# ---------------------------------------------------------------------------
+# Quality codes — single source for ordinal validation, UI widgets, and charts
+# ---------------------------------------------------------------------------
+
+# Standard quality codes (no-basement excluded); used by KitchenQual & ExterQual.
+QUALITY_CODES: list[str] = ["Po", "Fa", "TA", "Gd", "Ex"]
+
+# Basement quality also accepts "None" (house has no basement).
+BSMT_QUALITY_CODES: list[str] = ["None"] + QUALITY_CODES
+
+# Short labels for charts and tables.
+QUALITY_LABELS: dict[str, str] = {
+    "None": "No Basement",
+    "Po": "Poor",
+    "Fa": "Fair",
+    "TA": "Typical",
+    "Gd": "Good",
+    "Ex": "Excellent",
+}
+
+# Long labels for UI dropdowns (code prefix kept for quick recognition).
+QUALITY_DISPLAY: dict[str, str] = {
+    "None": "None (no basement)",
+    "Po": "Po — Poor",
+    "Fa": "Fa — Fair",
+    "TA": "TA — Typical/Average",
+    "Gd": "Gd — Good",
+    "Ex": "Ex — Excellent",
+}
+
+# ---------------------------------------------------------------------------
+# Neighborhoods — sorted tuple for UI selectbox; frozenset for O(1) validation
+# ---------------------------------------------------------------------------
+
+NEIGHBORHOODS: tuple[str, ...] = (
+    "Blmngtn", "Blueste", "BrDale", "BrkSide", "ClearCr", "CollgCr",
+    "Crawfor", "Edwards", "Gilbert", "IDOTRR", "MeadowV", "Mitchel",
+    "NAmes", "NoRidge", "NPkVill", "NridgHt", "NWAmes", "OldTown",
+    "SWISU", "Sawyer", "SawyerW", "Somerst", "StoneBr", "Timber", "Veenker",
+)
+VALID_NEIGHBORHOODS: frozenset[str] = frozenset(NEIGHBORHOODS)
+
+# ---------------------------------------------------------------------------
+# Numeric feature bounds — used by Pydantic validation and UI widget clamps
+# ---------------------------------------------------------------------------
+
+# (min, max) inclusive; derived from dataset range + domain knowledge.
+NUMERIC_FEATURE_BOUNDS: dict[str, tuple[float, float]] = {
+    "OverallQual":  (1,    10),
+    "TotalSF":      (300,  12_000),
+    "GarageCars":   (0,    4),
+    "TotalBath":    (0.0,  7.0),
+    "YearBuilt":    (1872, 2010),
+    "TotalBsmtSF":  (0,    6_000),
+}
+
+# Valid discrete values for the GarageCars selectbox.
+VALID_GARAGE_CARS: frozenset[int] = frozenset(range(5))  # 0–4
+
+# ---------------------------------------------------------------------------
+# Feature display labels — used by UI forms, tables, and chart axes
+# ---------------------------------------------------------------------------
+
+FEATURE_LABELS: dict[str, str] = {
+    "OverallQual": "Overall Quality (1–10)",
+    "TotalSF": "Total Floor Area (sqft)",
+    "GarageCars": "Garage Capacity (cars)",
+    "TotalBath": "Total Bathrooms",
+    "YearBuilt": "Year Built",
+    "TotalBsmtSF": "Basement Area (sqft)",
+    "KitchenQual": "Kitchen Quality",
+    "BsmtQual": "Basement Quality",
+    "ExterQual": "Exterior Material Quality",
+    "Neighborhood": "Neighborhood",
 }
 
 # Human-readable metadata consumed by the Streamlit UI and LLM prompts.

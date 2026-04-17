@@ -13,6 +13,14 @@ from typing import Any, Optional
 
 from pydantic import BaseModel, Field, model_validator
 
+from src.config import (
+    BSMT_QUALITY_CODES,
+    NUMERIC_FEATURE_BOUNDS,
+    QUALITY_CODES,
+    SELECTED_FEATURES,
+    VALID_NEIGHBORHOODS,
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -24,18 +32,7 @@ class Confidence(str, Enum):
 
 
 # Feature names in the order used by the ML pipeline.
-_FEATURE_NAMES: list[str] = [
-    "OverallQual",
-    "TotalSF",
-    "GarageCars",
-    "TotalBath",
-    "YearBuilt",
-    "TotalBsmtSF",
-    "KitchenQual",
-    "BsmtQual",
-    "ExterQual",
-    "Neighborhood",
-]
+_FEATURE_NAMES: list[str] = SELECTED_FEATURES
 
 
 class ExtractedFeatures(BaseModel):
@@ -141,17 +138,8 @@ class ExtractedFeatures(BaseModel):
         if not isinstance(data, dict):
             return data
 
-        # ── Numeric bounds (inclusive) ────────────────────────────────────────
-        # Derived from FEATURE_DEFINITIONS in src/config.py and the dataset.
-        _NUMERIC_BOUNDS: dict[str, tuple[float, float]] = {
-            "OverallQual": (1,    10),
-            "TotalSF":     (300,  15_000),  # <300 sqft unrealistic for Ames
-            "GarageCars":  (0,    4),
-            "TotalBath":   (0,    7),
-            "YearBuilt":   (1872, 2025),
-            "TotalBsmtSF": (0,    6_000),
-        }
-        for field, (lo, hi) in _NUMERIC_BOUNDS.items():
+        # ── Numeric bounds (inclusive) — sourced from config.NUMERIC_FEATURE_BOUNDS ──
+        for field, (lo, hi) in NUMERIC_FEATURE_BOUNDS.items():
             val = data.get(field)
             if val is None:
                 continue
@@ -168,14 +156,13 @@ class ExtractedFeatures(BaseModel):
                 )
                 data[field] = None
 
-        # ── Ordinal valid sets ────────────────────────────────────────────────
-        _KITCHEN_VALID  = {"Po", "Fa", "TA", "Gd", "Ex"}
-        _BSMT_VALID     = {"None", "Po", "Fa", "TA", "Gd", "Ex"}
-        _EXTER_VALID    = {"Po", "Fa", "TA", "Gd", "Ex"}
-        _ORDINAL_CHECKS: dict[str, set[str]] = {
-            "KitchenQual": _KITCHEN_VALID,
-            "BsmtQual":    _BSMT_VALID,
-            "ExterQual":   _EXTER_VALID,
+        # ── Ordinal valid sets — sourced from config quality code lists ──────
+        _QUALITY_SET = frozenset(QUALITY_CODES)
+        _BSMT_SET    = frozenset(BSMT_QUALITY_CODES)
+        _ORDINAL_CHECKS: dict[str, frozenset[str]] = {
+            "KitchenQual": _QUALITY_SET,
+            "BsmtQual":    _BSMT_SET,
+            "ExterQual":   _QUALITY_SET,
         }
         for field, valid_set in _ORDINAL_CHECKS.items():
             val = data.get(field)
@@ -186,15 +173,9 @@ class ExtractedFeatures(BaseModel):
                 )
                 data[field] = None
 
-        # ── Neighborhood valid set ────────────────────────────────────────────
-        _VALID_NEIGHBORHOODS: set[str] = {
-            "Blmngtn", "Blueste", "BrDale", "BrkSide", "ClearCr", "CollgCr",
-            "Crawfor", "Edwards", "Gilbert", "IDOTRR", "MeadowV", "Mitchel",
-            "NAmes", "NoRidge", "NPkVill", "NridgHt", "NWAmes", "OldTown",
-            "SWISU", "Sawyer", "SawyerW", "Somerst", "StoneBr", "Timber", "Veenker",
-        }
+        # ── Neighborhood valid set — sourced from config.VALID_NEIGHBORHOODS ─
         nbhd = data.get("Neighborhood")
-        if nbhd is not None and nbhd not in _VALID_NEIGHBORHOODS:
+        if nbhd is not None and nbhd not in VALID_NEIGHBORHOODS:
             logger.info(
                 "Extracted Neighborhood=%r is not a known Ames neighbourhood — treating as missing",
                 nbhd,

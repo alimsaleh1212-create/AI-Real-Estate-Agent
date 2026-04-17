@@ -18,7 +18,17 @@ from typing import Any
 
 import google.generativeai as genai
 
-from src.config import GEMINI_MODEL, get_google_api_key
+from src.config import (
+    GEMINI_MODEL,
+    LLM_EXTRACTION_CACHE_SIZE,
+    LLM_EXTRACTION_TEMPERATURE,
+    LLM_INSIGHTS_CACHE_SIZE,
+    LLM_INTENT_CACHE_SIZE,
+    LLM_MAX_OUTPUT_TOKENS,
+    LLM_TEXT_TEMPERATURE,
+    MAX_QUERY_LENGTH,
+    get_google_api_key,
+)
 from src.prompts import (
     EXTRACTION_PROMPT_V1,
     EXTRACTION_PROMPT_V2,
@@ -70,14 +80,14 @@ def _get_model() -> Any:  # -> genai.GenerativeModel
 # ---------------------------------------------------------------------------
 
 _EXTRACTION_CONFIG: Any = genai.GenerationConfig(  # type: ignore[attr-defined]
-    temperature=0.0,  # deterministic for structured extraction
+    temperature=LLM_EXTRACTION_TEMPERATURE,
     response_mime_type="application/json",
-    max_output_tokens=1024,  # 10-field JSON ≈ 60 tokens; 1024 gives headroom without exfiltration risk
+    max_output_tokens=LLM_MAX_OUTPUT_TOKENS,
 )
 
 _TEXT_CONFIG: Any = genai.GenerationConfig(  # type: ignore[attr-defined]
-    temperature=0.7,
-    max_output_tokens=1024,  # 3-4 sentences needs ~150 tokens; 1024 is a generous cap
+    temperature=LLM_TEXT_TEMPERATURE,
+    max_output_tokens=LLM_MAX_OUTPUT_TOKENS,
 )
 
 
@@ -102,7 +112,7 @@ def _call_gemini(prompt: str, config: Any) -> str:
         raise
 
 
-@lru_cache(maxsize=256)
+@lru_cache(maxsize=LLM_EXTRACTION_CACHE_SIZE)
 def _cached_extraction(prompt: str) -> str:
     """LRU-cached wrapper for deterministic (temperature=0) extraction calls.
 
@@ -121,7 +131,7 @@ def _cached_extraction(prompt: str) -> str:
     return _call_gemini(prompt, _EXTRACTION_CONFIG)
 
 
-@lru_cache(maxsize=512)
+@lru_cache(maxsize=LLM_INTENT_CACHE_SIZE)
 def _cached_intent(prompt: str) -> str:
     """LRU-cached wrapper for intent classification calls.
 
@@ -139,7 +149,7 @@ def _cached_intent(prompt: str) -> str:
     return _call_gemini(prompt, _TEXT_CONFIG)
 
 
-@lru_cache(maxsize=256)
+@lru_cache(maxsize=LLM_INSIGHTS_CACHE_SIZE)
 def _cached_insights(prompt: str) -> str:
     """LRU-cached wrapper for market-insights calls.
 
@@ -258,7 +268,7 @@ def _format_features_text(features: ExtractedFeatures) -> str:
     return "\n".join(lines)
 
 
-_MAX_QUERY_LEN: int = 500
+_MAX_QUERY_LEN: int = MAX_QUERY_LENGTH
 _INJECTION_PATTERN: re.Pattern[str] = re.compile(
     r"(ignore|disregard|override|forget|system|instruction|prompt|previous)\s",
     re.IGNORECASE,
